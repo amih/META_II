@@ -1,521 +1,405 @@
-// interpreter information
-// program counter into the interpreter text 
-var pc ;
-// interpreter text
-var ic ;
-
-// input information
-// input pointer into the input text 
-var inp;
-// input text
-var inbuf ;
-// output information
-// output text
-var outbuf ;
-// output left margin
-var margin ;
-
-// stack information
-// stack frame size (0=gn1, 1=gn2, 2=pc, 3=rule, 4=lm)
-var stackframesize = 5 ;
-// stack frame pointer into stack array
-var stackframe ;
-// stack of stackframes
-// stack = new array(600) ;
-
+var programCounter;
+var programCode;
+var inputPointer;
+var inbuf;
+var outbuf;
+var margin;
+var stackframesize = 5; // stack frame size (0=gn1, 1=gn2, 2=programCounter, 3=rule, 4=lm)
+var stackframe; // stack frame pointer into stack array
 // runtime variables
-// interpreter exit flag
-var exitlevel ;
-// parser control flag
-var flag ;   
-// argument for order codes with symbol arguments 
-var symbolarg ;
-// argument for order codes with string arguments
-var stringarg ;
-// next numeric label to use
-var gnlabel ;
-// token string from parse
-var token ;
-// output string from code ejection
-var outstr ;
+var exitlevel; // interpreter exit flag
+var flag; // parser control flag
+var symbolarg; // argument for order codes with symbol arguments 
+var stringarg; // argument for order codes with string arguments
+var gnlabel; // next numeric label to use
+var token; // token string from parse
+var outstr; // output string from code ejection
+var tokenflag; // collecting token characters
 
-// extension variables
-// collecting token characters
-var tokenflag ; 
+function spaces(){
+  while(/[ \t\n]/.test(inbuf.charAt(inputPointer))){ inputPointer++ };
+}
 
-function spaces ()
-// delete initial whitespace (space, newline, return, tab)
-{
-  while ((inbuf.charAt(inp) == ' ')  || (inbuf.charAt(inp) == '\n') || 
-         (inbuf.charAt(inp) == '\r') || (inbuf.charAt(inp) == '\t') ) inp++ ;
-} ;
+function findlabel(s){
+  var found;// fast goto
+  programCounter = programCode.indexOf('\n'+s+'\n');
+  found = (programCounter >= 0);
+  if (found){
+    programCounter = programCounter + s.length + 1;
+  }else{
+    console.log('label '+s+' not found!\n');
+    exitlevel = true;
+  }
+}
 
-function findlabel(s) {
-var found ;
+function runTST(s){
+  var i;
+  spaces();
+  flag = true; i = 0; // test string case insensitive
+  while(flag && (i < s.length)){
+    flag = (s.charAt(i).toUpperCase() == inbuf.charAt(inputPointer+i).toUpperCase());
+    i++;
+  }
+  if(flag){
+    inputPointer = inputPointer + s.length; // advance input if found
+  }
+}
 
-// fast goto
-  pc = ic.indexOf('\n'+s+'\n') ;
-  found = (pc >= 0) ;
-  if (!found) pc = ic.indexOf('\n'+s+'\r') ;
-  found = (pc >= 0) ;
-  if (found) pc = pc + s.length + 1 ;
-  // notify on unresolved label and stop interpret
-  if (! found) { window.alert('label '+s+' not found!\n'); exitlevel = true; } ;
-} ;
-
-
-function runTST(s) {
-var i ;
-
-  // delete whitespace 
-  spaces() ;
-  // test string case insensitive 
-  flag = true ; i = 0 ;
-  while (flag && (i < s.length) )
-    { flag = (s.charAt(i).toUpperCase() == inbuf.charAt(inp+i).toUpperCase()) ; i++ ; } ;
-  // advance input if found 
-  if (flag) inp = inp + s.length ;
-} ;
-
-function runID ()
-{
-  // delete whitespace 
-  spaces() ;
-  // accept upper alpha or lower alpha
-  flag = ( ((inbuf.charAt(inp) >= 'A') && (inbuf.charAt(inp) <= 'Z')) ||
-           ((inbuf.charAt(inp) >= 'a') && (inbuf.charAt(inp) <= 'z')) ) ;
+function runID(){
+  spaces();
+  flag = ( ((inbuf.charAt(inputPointer) >= 'A') && (inbuf.charAt(inputPointer) <= 'Z')) ||
+           ((inbuf.charAt(inputPointer) >= 'a') && (inbuf.charAt(inputPointer) <= 'z')) );
   if (flag) {
-    token = '' ;
-    while (flag)
-      {
-        // add to token 
-        token = token + inbuf.charAt(inp) ;
-        inp++ ;
-        // accept upper alpha or lower alpha or numeral 
-        flag = ( ((inbuf.charAt(inp) >= 'A') && (inbuf.charAt(inp) <= 'Z')) ||
-                 ((inbuf.charAt(inp) >= 'a') && (inbuf.charAt(inp) <= 'z')) ||
-                 ((inbuf.charAt(inp) >= '0') && (inbuf.charAt(inp) <= '9')) ) ;
-      } ;
-    flag = true ;
-  } ;
-} ;
+    token = '';
+    while (flag){
+      token = token + inbuf.charAt(inputPointer);
+      inputPointer++;
+      flag = ( ((inbuf.charAt(inputPointer) >= 'A') && (inbuf.charAt(inputPointer) <= 'Z')) ||
+               ((inbuf.charAt(inputPointer) >= 'a') && (inbuf.charAt(inputPointer) <= 'z')) ||
+               ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9')) );
+    }
+    flag = true;
+  }
+}
 
-function runNUM ()
-{
-  // delete whitespace 
-  spaces() ;
-  // accept a numeral 
-  flag = ((inbuf.charAt(inp) >= '0') && (inbuf.charAt(inp) <= '9')) ;
+function runNUM(){
+  spaces();
+  flag = ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9'));
   if (flag) {
-      token = '' ;
-      while (flag)
-        {
-          // add to token 
-          token = token + inbuf.charAt(inp) ;
-          inp++ ;
-          // accept numerals 
-          flag = ((inbuf.charAt(inp) >= '0') && (inbuf.charAt(inp) <= '9')) ;
-        } ;
-      flag = true ;
-    } ;
-} ;
+    token = '';
+    while (flag){
+      // add to token 
+      token = token + inbuf.charAt(inputPointer);
+      inputPointer++;
+      // accept numerals 
+      flag = ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9'));
+    }
+    flag = true;
+  }
+}
 
-function runSR ()
-{
-  // delete whitespace 
-  spaces() ;
-  // accept a single quote 
-  flag = (inbuf.charAt(inp) == '\'') ;
+function runSR(){
+  spaces();
+  flag = (inbuf.charAt(inputPointer) == '\'');
   if (flag) {
-      token = '' ;
-      while (flag)
-        {
-          // add to token 
-          token = token + inbuf.charAt(inp) ;
-          inp++ ;
-          // accept anything but a single quote 
-          flag = (inbuf.charAt(inp) != '\'') ;
-        } ;
-      // skip teminating single quote 
-      token = token + '\'' ;
-      inp++ ;
-      flag = true ;
-    } ;
-} ;
+    token = '';
+    while (flag){
+      token = token + inbuf.charAt(inputPointer);
+      inputPointer++;
+      flag = (inbuf.charAt(inputPointer) != '\'');
+    }
+    token = token + '\'';
+    inputPointer++;
+    flag = true;
+  }
+}
 
-function runADR ()
-{ 
-  gnlabel = 1 ;
-  inp = 0 ;
-  margin = 0 ;
-  stackframe = 0 ;
-  // initialize first stackframe 
-  stack[stackframe * stackframesize + 0] = 0 ;         // GN1  also GN (extended only)
-  stack[stackframe * stackframesize + 1] = 0 ;         // GN2
-  stack[stackframe * stackframesize + 2] = -1 ;        // return pc value
-  stack[stackframe * stackframesize + 3] = symbolarg ; // rule name called for error messages
-  stack[stackframe * stackframesize + 4] = margin ;    // left margin (extended only)
-  findlabel(symbolarg) ;
-} ;
+function runADR(){ 
+  gnlabel = 1;
+  inputPointer = 0;
+  margin = 0;
+  stackframe = 0; // initialize first stackframe 
+  stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
+  stack[stackframe * stackframesize + 1] = 0;         // GN2
+  stack[stackframe * stackframesize + 2] = -1;        // return programCounter value
+  stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
+  stack[stackframe * stackframesize + 4] = margin;    // left margin (extended only)
+  findlabel(symbolarg);
+}
 
-function runCLL ()
-{
-  // push and initialize a new stackframe
-  stackframe++ ;
-  stack[stackframe * stackframesize + 0] = 0 ;         // GN1  also GN (extended only)
-  stack[stackframe * stackframesize + 1] = 0 ;         // GN2
-  stack[stackframe * stackframesize + 2] = pc ;        // return pc value
-  stack[stackframe * stackframesize + 3] = symbolarg ; // rule name called for error messages
-  stack[stackframe * stackframesize + 4] = margin ;    // left margin (needed on backtrack)
-  findlabel(symbolarg) ;
-} ;
+function runCLL(){
+  stackframe++; // push and initialize a new stackframe
+  stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
+  stack[stackframe * stackframesize + 1] = 0;         // GN2
+  stack[stackframe * stackframesize + 2] = programCounter;// return programCounter value
+  stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
+  stack[stackframe * stackframesize + 4] = margin;    // left margin (needed on backtrack)
+  findlabel(symbolarg);
+}
 
-function runEND ()
-{
-  exitlevel = true ;
-  if (!flag) window.alert('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed') ;
-} ;
+function runEND(){
+  exitlevel = true;
+  if (!flag) console.log('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed');
+}
 
-function runR ()
-{ 
-  // interpretation completed on return on empty stack
-  if (stackframe == 0) {runEND() ; return ; };
-  // get return pc from stackframe and pop stack
-  pc = stack[stackframe * stackframesize + 2] ; // return pc
-  margin = stack[stackframe * stackframesize + 4] ;
-  stackframe-- ;                                // pop stackframe
-} ;
+function runR(){ 
+  if (stackframe == 0) {runEND(); return; };
+  programCounter = stack[stackframe * stackframesize + 2]; // return programCounter
+  margin = stack[stackframe * stackframesize + 4];
+  stackframe--;                                // pop stackframe
+}
 
-function runSET ()
-{
-  flag = true ;
-} ;
+function runSET (){
+  flag = true;
+}
 
-function runB ()
-{
-  findlabel(symbolarg) ;
-} ;
+function runB (){
+  findlabel(symbolarg);
+}
 
-function runBT ()
-{
-  if (flag) findlabel(symbolarg) ;
-} ;
+function runBT (){
+  if (flag) findlabel(symbolarg);
+}
 
-function runBF ()
-{
-  if (! flag) findlabel(symbolarg) ;
-} ;
+function runBF (){
+  if (! flag) findlabel(symbolarg);
+}
 
 function runBE () {
-var i ; var j ; var h ;
-var msg ; var ctx ;
-  // only halt if there is an error
-  if (flag) return ;
-  // provide error context
+  var i; var j; var h;
+  var msg; var ctx;
+  if (flag) return; // only halt if there is an error
   msg = 'SYNTAX ERROR:\n' +
         'rule:' + stack[stackframe * stackframesize + 3] + '\n' +
         'last token:' + token + '\n' +
         'out string:' + outstr + '\n' +
-        'INPUT:' + '\n' ; 
+        'INPUT:' + '\n'; 
   // provide scan context
-  i = inp - 20 ;  if (i < 0) i = 0 ;
-  j = inp + 20 ;  if (j > inbuf.length) j = inbuf.length ;
-  ctx = inbuf.substring(i,inp) + '<scan>' + inbuf.substring(inp,j) ;
-  msg += ctx + '\n\n' + 'CHAR CODES:\n' ;
+  i = inputPointer - 20;  if (i < 0) i = 0;
+  j = inputPointer + 20;  if (j > inbuf.length) j = inbuf.length;
+  ctx = inbuf.substring(i,inputPointer) + '<scan>' + inbuf.substring(inputPointer,j);
+  msg += ctx + '\n\n' + 'CHAR CODES:\n';
   // ensure all character codes are visible
-  for (var h = 0 ; h < ctx.length ; h++)
+  for (var h = 0; h < ctx.length; h++){
     { if (ctx.charCodeAt(h) <= 32) 
-        { msg += '<' + ctx.charCodeAt(h) + '>' ; }
+        { msg += '<' + ctx.charCodeAt(h) + '>'; }
       else
-        { msg += ctx.charAt(h) ; } ;
-    } ;
-  msg += '\n' ;
-  window.alert(msg) ;
-  exitlevel = true ;
-} ;
+        { msg += ctx.charAt(h); }
+    }
+  }
+  msg += '\n';
+  console.log(msg);
+  exitlevel = true;
+}
 
-function runCL (s)
-{
-  out(s) ;
-} ;
+function runCL(s){
+  out(s);
+}
 
-function runCI ()
-{
-  out(token) ;
-} ;
+function runCI (){
+  out(token);
+}
 
-function runGN1 ()
-{
-  if (stack[stackframe * stackframesize + 0] == 0) 
-    {
-      stack[stackframe * stackframesize + 0] = gnlabel ;
-      gnlabel++ ;
-    } ;
-  out('L' + stack[stackframe * stackframesize + 0]) ;
-} ;
+function runGN1(){
+  if (stack[stackframe * stackframesize + 0] == 0){
+    stack[stackframe * stackframesize + 0] = gnlabel;
+    gnlabel++;
+  }
+  out('L' + stack[stackframe * stackframesize + 0]);
+}
 
-function runGN2 ()
-{
-  if (stack[stackframe * stackframesize + 1] == 0) 
-    {
-      stack[stackframe * stackframesize + 1] = gnlabel ;
-      gnlabel++ ;
-    } ;
-  out('B' + stack[stackframe * stackframesize + 1]) ;
-} ;
+function runGN2(){
+  if (stack[stackframe * stackframesize + 1] == 0) {
+    stack[stackframe * stackframesize + 1] = gnlabel;
+    gnlabel++;
+  }
+  out('B' + stack[stackframe * stackframesize + 1]);
+}
 
-function runLB ()
-{
-  outstr = '' ;
-} ;
+function runLB(){
+  outstr = '';
+}
 
-function runOUT ()
-{
-  outbuf += outstr + '\n' ;
-  outstr = '\t' ;
-} ;
+function runOUT(){
+  outbuf += outstr + '\n';
+  outstr = '\t';
+}
 
 // extended runtime order codes not in original Meta II paper
-
-// out - if necessary move to margin before output of s
-function out(s)
-{
-var col ;
+function out(s){ // out - if necessary move to margin before output of s
+  var col;
   if ((margin > 0) && (outstr.length == 0)) {
-    // advance to left margin
-    col = 0 ;
-    while (col < margin) { outstr = outstr + ' '; col++ ; }; } ;
-  // output given string
-  outstr += s ;
-} ;
-
+    col = 0; // advance to left margin
+    while (col < margin) { outstr = outstr + ' '; col++; };
+  }
+  outstr += s;
+}
 // extensions to provide label and nested output definition
-
 // NL - generate newline (extended only, compare with runOUT)
-function runextNL ()
-{
+function runextNL(){
   // output current line
-  outbuf += outstr + '\n' ;
-  outstr = '' ;
-} ;
+  outbuf += outstr + '\n';
+  outstr = '';
+}
 
-// TB - add a tab to the output
-function runextTB ()
-{ 
-  out('\t') ;
-} ;
+function runextTB(){ // TB - add a tab to the output
+  out('\t');
+}
 
 // GN - generate unique number (extended only, compare with runGN1)
-function runextGN ()
-{
-  if (stack[stackframe * stackframesize + 0] == 0) 
-    {
-      stack[stackframe * stackframesize + 0] = gnlabel ;
-      gnlabel++ ;
-    } ;
-  out(stack[stackframe * stackframesize + 0]) ;
-} ;
+function runextGN (){
+  if (stack[stackframe * stackframesize + 0] == 0){
+    stack[stackframe * stackframesize + 0] = gnlabel;
+    gnlabel++;
+  }
+  out(stack[stackframe * stackframesize + 0]);
+}
 
 // LMI - increase left margin (extended only)
-function runextLMI ()
-{
-  margin += 2 ;
-} ;
+function runextLMI (){
+  margin += 2;
+}
 
 // LMD - decrease left margin (extended only)
-function runextLMD ()
-{
-  margin -= 2 ;
-} ;
+function runextLMD (){
+  margin -= 2;
+}
 
 // extensions to provide token definition
-        
 // CE  - compare input char to code for equal
-function runextCE (s)
-{
-  flag = (inbuf.charCodeAt(inp) == s) ;
-} ;
+function runextCE (s){
+  flag = (inbuf.charCodeAt(inputPointer) == s);
+}
 
 // CGE - compare input char to code for greater or equal
-function runextCGE (s)
-{
-  flag = (inbuf.charCodeAt(inp) >= s) ;
-} ;
+function runextCGE (s){
+  flag = (inbuf.charCodeAt(inputPointer) >= s);
+}
 
 // CLE - compare input char to code for less or equal
-function runextCLE (s)
-{
-  flag = (inbuf.charCodeAt(inp) <= s) ;
-} ;
+function runextCLE (s){
+  flag = (inbuf.charCodeAt(inputPointer) <= s);
+}
 
 // LCH - literal char code to token buffer (extended only)
-function runextLCH ()
-{
-  token = inbuf.charCodeAt(inp) ;
-  // scan the character
-  inp++;
-} ;
+function runextLCH (){
+  token = inbuf.charCodeAt(inputPointer);
+  inputPointer++; // scan the character
+}
 
 // NOT - invert parse flag
-function runextNOT ()
-{
-  flag = !flag ;
-} ;
+function runextNOT (){
+  flag = !flag;
+}
 
 // TFT - set token flag true and clear token
-function runextTFT ()
-{
-  tokenflag = true ;
-  token = '' ;
-} ;
+function runextTFT (){
+  tokenflag = true;
+  token = '';
+}
 
 // TFF - set token flag false
-function runextTFF ()
-{
-  tokenflag = false ;
-} ;
+function runextTFF (){
+  tokenflag = false;
+}
 
 // SCN - if flag, scan input character; if token flag, add to token (extended only)
-function runextSCN ()
-{ if (flag) {
-    // if taking token, add to token 
-    if (tokenflag) token = token + inbuf.charAt(inp) ;
-    // scan the character 
-    inp++ ;
-  } ;
-} ;
+function runextSCN (){
+  if (flag) { // if taking token, add to token
+    if (tokenflag) token = token + inbuf.charAt(inputPointer);
+    inputPointer++; // scan the character
+  }
+}
 
 // CC - copy char code to output
-function runextCC (s)
-{
+function runextCC (s){
   outstr = outstr + String.fromCharCode(s);
-} ;
+}
 
-function argstring ()
-{
-  stringarg = '' ;
+function argstring (){
+  stringarg = '';
   // find the beginning of the string 
-  while (ic.charAt(pc) != '\'') pc++ ;
-  // concat string together 
-  pc++ ;
-  while (ic.charAt(pc) != '\'')
-    {
-      stringarg = stringarg + ic.charAt(pc) ;
-      pc++ ;
-    } ;
-  // skip terminating single quote 
-  pc++ ;
-} ;
+  while (programCode.charAt(programCounter) != '\''){ programCounter++; }
+  // concat string together
+  programCounter++;
+  while (programCode.charAt(programCounter) != '\''){
+    stringarg = stringarg + programCode.charAt(programCounter);
+    programCounter++;
+  }
+  programCounter++; // skip terminating single quote
+}
 
-function argsymbol ()
-{
-  // reset symbol 
-  symbolarg = '' ;
+function argsymbol(){
+  symbolarg = ''; // reset symbol 
   // skip over the operator (not tab and not blank)
-  while ((ic.charAt(pc) != ' ') && (ic.charAt(pc) != '\t')) pc++ ;
+  while ((programCode.charAt(programCounter) != ' ') && (programCode.charAt(programCounter) != '\t')) programCounter++;
   // skip over tabs or blanks 
-  while ((ic.charAt(pc) == ' ') || (ic.charAt(pc) == '\t')) pc++ ;
+  while ((programCode.charAt(programCounter) == ' ') || (programCode.charAt(programCounter) == '\t')) programCounter++;
   // accrete symbol of alpha and numeral
-  while ( ((ic.charAt(pc) >= 'A') && (ic.charAt(pc) <= 'Z')) ||
-          ((ic.charAt(pc) >= 'a') && (ic.charAt(pc) <= 'z')) ||
-          ((ic.charAt(pc) >= '0') && (ic.charAt(pc) <= '9')) )
-    { symbolarg = symbolarg + ic.charAt(pc) ; pc++ ; } ;
-} ;
+  while ( ((programCode.charAt(programCounter) >= 'A') && (programCode.charAt(programCounter) <= 'Z')) ||
+          ((programCode.charAt(programCounter) >= 'a') && (programCode.charAt(programCounter) <= 'z')) ||
+          ((programCode.charAt(programCounter) >= '0') && (programCode.charAt(programCounter) <= '9')) ){
+    symbolarg = symbolarg + programCode.charAt(programCounter);
+    programCounter++;
+  }
+}
 
 function InterpretOp () {
-var oc ;
-var op ;
-
-  // assumes pc on operator in line
-  oc = pc ; op = '' ;
+  var oc;
+  var op;
+  // assumes programCounter on operator in line
+  oc = programCounter; op = '';
   // accrete operator of upper alpha and numeral
-  while ( (oc < ic.length) &&
-          (((ic.charAt(oc) >= 'A') && (ic.charAt(oc) <= 'Z')) ||
-           ((ic.charAt(pc) >= 'a') && (ic.charAt(pc) <= 'z')) ||
-           ((ic.charAt(oc) >= '0') && (ic.charAt(oc) <= '9'))) )
-    { op = op + ic.charAt(oc) ; oc++ ; } ;
+  while ( (oc < programCode.length) &&
+          (((programCode.charAt(oc) >= 'A') && (programCode.charAt(oc) <= 'Z')) ||
+           ((programCode.charAt(programCounter) >= 'a') && (programCode.charAt(programCounter) <= 'z')) ||
+           ((programCode.charAt(oc) >= '0') && (programCode.charAt(oc) <= '9'))) ){
+    op = op + programCode.charAt(oc); oc++;
+  }
   // intrepreter op case branch
   switch (op) {
-    // original META II order codes
-    case 'ADR': argsymbol() ; runADR() ; return ;          // ADR - specify starting rule
-    case 'B':   argsymbol() ; runB() ; return ;            // B   - unconditional branch to label
-    case 'BT':  argsymbol() ; runBT() ; return ;           // BT  - branch if switch true to label
-    case 'BF':  argsymbol() ; runBF() ; return ;           // BF  - branch if switch false to label
-    case 'BE':  runBE() ; return ;                         // BE  - branch if switch false to error halt
-    case 'CLL': argsymbol() ; runCLL() ; return ;          // CLL - call rule at label
-    case 'CL':  argstring() ; runCL(stringarg) ; return ;  // CL  - copy given string argument to output
-    case 'CI':  runCI() ; return ;                         // CI  - copy scanned token to output
-    case 'END': runEND() ; return ;                        // END - pseudo op, end of source
-    case 'GN1': runGN1() ; return ;                        // GN1 - make and output label 1
-    case 'GN2': runGN2() ; return ;                        // GN2 - make and output label 2
-    case 'ID':  runID() ; return ;                         // ID  - recognize identifier token
-    case 'LB':  runLB() ; return ;                         // LB  - start output in label field
-    case 'NUM': runNUM() ; return ;                        // NUM - recognize number token 
-    case 'OUT': runOUT() ; return ;                        // OUT - output out buffer with new line
-    case 'R':   runR() ; return ;                          // R   - return from rule call with CLL
-    case 'SET': runSET() ; return ;                        // SET - set switch true
-    case 'SR':  runSR() ; return ;                         // SR  - recognize string token including single quotes
-    case 'TST': argstring() ; runTST(stringarg) ; return ; // TST - test for given string argument, if found set switch
-    // extensions to provide label and nested output definition
-    case 'GN':  runextGN() ; return ;                      // GN  - make and output unique number
-    case 'LMI': runextLMI() ; return ;                     // LMI - left margin increase
-    case 'LMD': runextLMD() ; return ;                     // LMD - left margin decrease
-    case 'NL':  runextNL() ; return ;                      // NL  - new line output
-    case 'TB':  runextTB() ; return ;                      // TB  - output a tab
-    // extensions to provide token definition
-    case 'CE':  argsymbol() ; runextCE(symbolarg) ; return ;        // CE  - compare input char to code for equal
-    case 'CGE': argsymbol() ; runextCGE(symbolarg) ; return ;       // CGE - compare input char to code for greater or equal
-    case 'CLE': argsymbol() ; runextCLE(symbolarg) ; return ;       // CLE - compare input char to code for less or equal
-    case 'LCH': runextLCH() ; return ;                     // LCH - literal character code to token as string
-    case 'NOT': runextNOT() ; return ;                     // NOT - complement flag
-    case 'RF':  if (!flag) runR() ; return ;               // RF  - return if switch false
-    case 'SCN': runextSCN() ; return ;                     // SCN - if flag, scan input character; if token flag, add to token
-    case 'TFF': runextTFF() ; return ;                     // TFF - token flag set to false
-    case 'TFT': runextTFT() ; return ;                     // TFT - token flag set to true
+    case 'ADR': argsymbol(); runADR(); return;          // ADR - specify starting rule
+    case 'B':   argsymbol(); runB(); return;            // B   - unconditional branch to label
+    case 'BT':  argsymbol(); runBT(); return;           // BT  - branch if switch true to label
+    case 'BF':  argsymbol(); runBF(); return;           // BF  - branch if switch false to label
+    case 'BE':  runBE(); return;                        // BE  - branch if switch false to error halt
+    case 'CLL': argsymbol(); runCLL(); return;          // CLL - call rule at label
+    case 'CL':  argstring(); runCL(stringarg); return;  // CL  - copy given string argument to output
+    case 'CI':  runCI(); return;                        // CI  - copy scanned token to output
+    case 'END': runEND(); return;                       // END - pseudo op, end of source
+    case 'GN1': runGN1(); return;                       // GN1 - make and output label 1
+    case 'GN2': runGN2(); return;                       // GN2 - make and output label 2
+    case 'ID':  runID(); return;                        // ID  - recognize identifier token
+    case 'LB':  runLB(); return;                        // LB  - start output in label field
+    case 'NUM': runNUM(); return;                       // NUM - recognize number token 
+    case 'OUT': runOUT(); return;                       // OUT - output out buffer with new line
+    case 'R':   runR(); return;                         // R   - return from rule call with CLL
+    case 'SET': runSET(); return;                       // SET - set switch true
+    case 'SR':  runSR(); return;                        // SR  - recognize string token including single quotes
+    case 'TST': argstring(); runTST(stringarg); return; // TST - test for given string argument, if found set switch
+    case 'GN':  runextGN(); return;                     // GN  - make and output unique number
+    case 'LMI': runextLMI(); return;                    // LMI - left margin increase
+    case 'LMD': runextLMD(); return;                    // LMD - left margin decrease
+    case 'NL':  runextNL(); return;                     // NL  - new line output
+    case 'TB':  runextTB(); return;                     // TB  - output a tab
+    case 'CE':  argsymbol(); runextCE(symbolarg); return;        // CE  - compare input char to code for equal
+    case 'CGE': argsymbol(); runextCGE(symbolarg); return;       // CGE - compare input char to code for greater or equal
+    case 'CLE': argsymbol(); runextCLE(symbolarg); return;       // CLE - compare input char to code for less or equal
+    case 'LCH': runextLCH(); return;                     // LCH - literal character code to token as string
+    case 'NOT': runextNOT(); return;                     // NOT - complement flag
+    case 'RF':  if (!flag) runR(); return;               // RF  - return if switch false
+    case 'SCN': runextSCN(); return;                     // SCN - if flag, scan input character; if token flag, add to token
+    case 'TFF': runextTFF(); return;                     // TFF - token flag set to false
+    case 'TFT': runextTFT(); return;                     // TFT - token flag set to true
     // extensions for backtracking, error handling, and char code output
-    case 'PFF': flag = false ; return ;                    // PFF - parse flag set to false
-    case 'PFT': flag = true ; return ;                     // PFT - parse flag set to true (AKA SET)
-    case 'CC':  argsymbol() ; runextCC(symbolarg) ; return ;        // CC - copy char code to output
+    case 'PFF': flag = false; return;                    // PFF - parse flag set to false
+    case 'PFT': flag = true; return;                     // PFT - parse flag set to true (AKA SET)
+    case 'CC':  argsymbol(); runextCC(symbolarg); return;        // CC - copy char code to output
     default:
-        window.alert('ERROR: unknown interpret op \''+op+'\'') ;
-        exitlevel = true ;
-  } ;
-} ;
+      console.log('ERROR: unknown interpret op \''+op+'\'');
+      exitlevel = true;
+  }
+}
 
-function Interpret ()
-{ 
-  exitlevel = false ;
+function META_II(inputPointer, code){
+  stack = new Array(600); // create stack of stackframes
+  inbuf = inputPointer; // snap copy of the input and interpreter 
+  programCode = code;
+  outbuf = ''; // clear the output
+  outstr = '\t'; // default initial output to command field (override with LB)
+  programCounter = 0;
+  exitlevel = false;
   while (true) {
     // skip to the next operator which is prefaced by a '\t' 
-    while (ic.charAt(pc) != '\t') pc++ ;
-    pc++ ;
-    InterpretOp() ;
-    if (exitlevel) return ;
-  } ;
-} ;
-
-function InitIO (inp, code)
-{ 
-  // create stack of stackframes
-  stack = new Array(600) ;
-  // snap copy of the input and interpreter 
-  inbuf = inp;
-  ic = code;
-  // clear the output
-  outbuf = '' ;
-  // default initial output to command field (override with LB)
-  outstr = '\t' ;
-} ;
-
-// init the I/O start interpreter
-function META_II(inp, code)
-{
-  InitIO(inp, code) ;
-  pc = 0 ;
-  Interpret() ;
-  // fill in output on both success and failure
+    while (programCode.charAt(programCounter) != '\t'){
+      programCounter++;
+    }
+    programCounter++;
+    InterpretOp();
+    if (exitlevel) break;
+  }
   return outbuf;
-} ;
+}
 
 inpExample = `
 fern:=5+6;
