@@ -1,23 +1,5 @@
-var programCounter;
-var programCode;
-var inputPointer;
-var inbuf;
-var outbuf;
-var margin;
-var stackframesize = 5; // stack frame size (0=gn1, 1=gn2, 2=programCounter, 3=rule, 4=lm)
-var stackframe; // stack frame pointer into stack array
-// runtime variables
-var exitlevel; // interpreter exit flag
-var flag; // parser control flag
-var symbolarg; // argument for order codes with symbol arguments 
-var stringarg; // argument for order codes with string arguments
-var gnlabel; // next numeric label to use
-var token; // token string from parse
-var outstr; // output string from code ejection
-var tokenflag; // collecting token characters
-function spaces(){
-  while(/[ \t\n]/.test(inbuf.charAt(inputPointer))){ inputPointer++ };
-}
+var programCounter, programCode, inputPointer, inbuf, outbuf, margin, exitlevel, flag, symbolarg, stringarg, gnlabel, token, outstr, tokenflag;
+var stackframe, stackframesize = 5; // stack frame size (0=gn1, 1=gn2, 2=programCounter, 3=rule, 4=lm)
 function findlabel(s){
   programCounter = programCode.indexOf('\n'+s+'\n');
   if(programCounter >= 0){
@@ -28,71 +10,41 @@ function findlabel(s){
   }
 }
 function out(s){ // out - if necessary move to margin before output of s
-  if((margin > 0) && (outstr.length == 0)) {
-    var col = 0; // advance to left margin
-    while (col < margin) { outstr += ' '; col++; };
-  }
+  if((margin > 0) && (outstr.length == 0)) { outstr += ' '.repeat(margin); }
   outstr += s;
 }
 var vm = {
   TST: (s) => {
-    var i;
-    spaces();
-    flag = true; i = 0; // test string case insensitive
-    while(flag && (i < s.length)){
-      flag = (s.charAt(i).toUpperCase() == inbuf.charAt(inputPointer+i).toUpperCase());
-      i++;
-    }
+    s = s.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+    var result = inbuf.substr(inputPointer).match(new RegExp('^[ \t\n]*(?<arg>' + s + ')', 'i'));
+    flag = !!result;
     if(flag){
-      inputPointer += s.length; // advance input if found
+      token = result.groups.arg;
+      inputPointer += result[0].length;
     }
   },
   ID: () => {
-    spaces();
-    flag = ( /[a-zA-Z]/.test(inbuf.charAt(inputPointer)) );
-    if(flag) {
-      token = '';
-      while (flag){
-        token += inbuf.charAt(inputPointer);
-        inputPointer++;
-        flag = ( /[a-zA-Z0-9]/.test(inbuf.charAt(inputPointer)) );
-      }
-      flag = true;
+    var result = inbuf.substr(inputPointer).match(/^[ \t\n]*(?<arg>[a-zA-Z][a-zA-Z0-9]*)/);
+    flag = !!result;
+    if(flag){
+      token = result.groups.arg;
+      inputPointer += result[0].length;
     }
   },
   NUM: () => {
-    spaces();
-    flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
-    if(flag) {
-      token = '';
-      while (flag){
-        token += inbuf.charAt(inputPointer);
-        inputPointer++;
-        flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
-      }
-      flag = true;
-    }
+    var result = inbuf.substr(inputPointer).match(/^[ \t\n]*(?<arg>[0-9]*)/);
+    flag = result.groups.arg.length > 0;
+    token = result.groups.arg;
+    inputPointer += result[0].length;
   },
   SR: () => {
-    spaces();
-    flag = (inbuf.charAt(inputPointer) == '\'');
-    if(flag) {
-      token = '';
-      while (flag){
-        token = token + inbuf.charAt(inputPointer);
-        inputPointer++;
-        flag = (inbuf.charAt(inputPointer) != '\'');
-      }
-      token += '\'';
-      inputPointer++;
-      flag = true;
-    }
+    var result = inbuf.substr(inputPointer).match(/^[ \t\n]*\'(?<arg>[^\']*)/);
+    flag = result.groups.arg.length > 0;
+    token = result.groups.arg;
+    inputPointer += result[0].length + 1;
   },
   ADR: () => {
-    gnlabel = 1;
-    inputPointer = 0;
-    margin = 0;
-    stackframe = 0; // initialize first stackframe 
+    [ gnlabel, inputPointer, margin, stackframe ] = [ 1, 0, 0, 0 ];
     stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
     stack[stackframe * stackframesize + 1] = 0;         // GN2
     stack[stackframe * stackframesize + 2] = -1;        // return programCounter value
@@ -142,19 +94,18 @@ var vm = {
     msg += ctx + '\n\n' + 'CHAR CODES:\n';
     // ensure all character codes are visible
     for (var h = 0; h < ctx.length; h++){
-      { if(ctx.charCodeAt(h) <= 32) 
-          { msg += '<' + ctx.charCodeAt(h) + '>'; }
-        else
-          { msg += ctx.charAt(h); }
+      if(ctx.charCodeAt(h) <= 32){
+        msg += '<' + ctx.charCodeAt(h) + '>';
+      }else{
+        msg += ctx.charAt(h);
       }
     }
-    msg += '\n';
-    console.log(msg);
+    console.log(msg + '\n');
     exitlevel = true;
   },
-  CL: (s) => { out(s); },
-  CI: () => { out(token); },
-  GN1: () => {
+  CL:  (s) => { out(s); },
+  CI:  ( ) => { out(token); },
+  GN1: ( ) => {
     if(stack[stackframe * stackframesize + 0] == 0){
       stack[stackframe * stackframesize + 0] = gnlabel;
       gnlabel++;
@@ -170,82 +121,50 @@ var vm = {
   },
   LB:  () => { outstr = ''; },
   OUT: () => { outbuf += outstr + '\n'; outstr = '\t'; },
-  NL:  () => { outbuf += outstr + '\n'; outstr = ''; }, // output current line with new line char
-  TB:  () => { out('\t'); }, // TB - add a tab to the output
-  GN:  () => { // GN - generate unique number (extended only, compare with vm-GN1)
+  NL:  () => { outbuf += outstr + '\n'; outstr = ''  ; },
+  TB:  () => { out('\t'); }, // add a tab to the output
+  GN:  () => { // generate unique number (extended only, compare with vm-GN1)
     if(stack[stackframe * stackframesize + 0] == 0){
       stack[stackframe * stackframesize + 0] = gnlabel;
       gnlabel++;
     }
     out(stack[stackframe * stackframesize + 0]);
   },
-  LMI: ()  => { margin += 2; }, // LMI - increase left margin (extended only)
-  LMD: ()  => { margin -= 2; }, // LMD - decrease left margin (extended only)
-  CE:  (s) => { flag = (inbuf.charCodeAt(inputPointer) == s); }, // CE  - compare input char to code for equal
-  CGE: (s) => { flag = (inbuf.charCodeAt(inputPointer) >= s); }, // CGE - compare input char to code for greater or equal
-  CLE: (s) => { flag = (inbuf.charCodeAt(inputPointer) <= s); }, // CLE - compare input char to code for less or equal
-  LCH: ()  => { token = inbuf.charCodeAt(inputPointer); inputPointer++; }, // LCH - literal char code to token buffer (extended only)
-  NOT: ()  => { flag = !flag; }, // NOT - invert parse flag
-  TFT: ()  => { tokenflag = true; token = ''; }, // TFT - set token flag true and clear token
-  TFF: ()  => { tokenflag = false; }, // TFF - set token flag false
-  SCN: ()  => { // SCN - if flag, scan input character; if token flag, add to token (extended only)
+  LMI: ()  => { margin += 2; }, // increase left margin (extended only)
+  LMD: ()  => { margin -= 2; }, // decrease left margin (extended only)
+  CE:  (s) => { flag = (inbuf.charCodeAt(inputPointer) == s); }, // compare input char to code for equal
+  CGE: (s) => { flag = (inbuf.charCodeAt(inputPointer) >= s); }, // compare input char to code for greater or equal
+  CLE: (s) => { flag = (inbuf.charCodeAt(inputPointer) <= s); }, // compare input char to code for less or equal
+  LCH: ()  => { token = inbuf.charCodeAt(inputPointer); inputPointer++; }, // literal char code to token buffer (extended only)
+  NOT: ()  => { flag = !flag; }, // invert parse flag
+  TFT: ()  => { tokenflag = true; token = ''; }, // set token flag true and clear token
+  TFF: ()  => { tokenflag = false; }, // set token flag false
+  SCN: ()  => { // if flag, scan input character; if token flag, add to token (extended only)
     if(flag) { // if taking token, add to token
       if(tokenflag) token = token + inbuf.charAt(inputPointer);
       inputPointer++; // scan the character
     }
   },
-  CC: (s) => { outstr += String.fromCharCode(s); }, // CC - copy char code to output
+  CC: (s) => { outstr += String.fromCharCode(s); }, // copy char code to output
 }
 function argstring (){
-  stringarg = '';
-  // find the beginning of the string 
-  while (programCode.charAt(programCounter) != '\''){ programCounter++; }
-  // concat string together
-  programCounter++;
-  while (programCode.charAt(programCounter) != '\''){
-    stringarg += programCode.charAt(programCounter);
-    programCounter++;
-  }
-  programCounter++; // skip terminating single quote
+  var result = programCode.substr(programCounter).match(/^[^']*'(?<argstring>[^']*)/);
+  stringarg = result.groups.argstring;
+  programCounter += result[0].length;
 }
 function argsymbol(){
-  symbolarg = ''; // reset symbol 
-  // skip over the operator (not tab and not blank)
-  while ((programCode.charAt(programCounter) != ' ') && (programCode.charAt(programCounter) != '\t')) programCounter++;
-  // skip over tabs or blanks 
-  while ((programCode.charAt(programCounter) == ' ') || (programCode.charAt(programCounter) == '\t')) programCounter++;
-  // accrete symbol of alpha and numeral
-  while ( ((programCode.charAt(programCounter) >= 'A') && (programCode.charAt(programCounter) <= 'Z')) ||
-          ((programCode.charAt(programCounter) >= 'a') && (programCode.charAt(programCounter) <= 'z')) ||
-          ((programCode.charAt(programCounter) >= '0') && (programCode.charAt(programCounter) <= '9')) ){
-    symbolarg = symbolarg + programCode.charAt(programCounter);
-    programCounter++;
-  }
+  // skip non white space, then skip white space, then capture argument, 'BF L8' (Branch if flag is FALSE to label L8) --> 'L8'
+  var result = programCode.substr(programCounter).match(/^[^ \t]*[ \t]*(?<argsymbol>[a-zA-Z0-9]*)/);
+  symbolarg = result.groups.argsymbol;
+  programCounter += result[0].length;
 }
 function InterpretOp () {
-  var oc = programCounter;
-  var op = '';
-  // accrete operator of upper alpha and numeral
-  while ( (oc < programCode.length) &&
-          (((programCode.charAt(oc) >= 'A') && (programCode.charAt(oc) <= 'Z')) ||
-           ((programCode.charAt(oc) >= '0') && (programCode.charAt(oc) <= '9'))) ){
-    op += programCode.charAt(oc);
-    oc++;
-  }
+  op = /[A-Z0-9]*/.exec(programCode.substr(programCounter))[0];
   if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ argsymbol(); }
   if(/\b(CL|TST)\b/.test(op)){ argstring(); }// sets the stringarg
-  if(/\bRF\b/.test(op)){
-    if(!flag){ vm['R'](); }
-    return;
-  }
-  if(/\bPFF\b/.test(op)){
-    flag = false;
-    return;
-  }
-  if(/\bPFT\b/.test(op)){
-    flag = true;
-    return;
-  }
+  if(/\bRF\b/.test(op)){ if(!flag){ vm['R'](); } return; }
+  if(/\bPFF\b/.test(op)){ flag = false; return; }
+  if(/\bPFT\b/.test(op)){ flag = true; return; }
   if(!vm[op]){
     console.log('ERROR: unknown interpret op \''+op+'\'');
     exitlevel = true;
@@ -254,23 +173,18 @@ function InterpretOp () {
   vm[op](stringarg);
 }
 function META_II(input, code){
-  stack = new Array(600); // create stack of stackframes
-  inbuf = input; // snap copy of the input and interpreter 
-  programCode = code;
-  outbuf = ''; // clear the output
-  outstr = '\t'; // default initial output to command field (override with LB)
-  programCounter = 0;
-  exitlevel = false;
+  [ stack, inbuf, programCode, outbuf, outstr, programCounter, exitlevel ] = [ new Array(600), input, code, '', '\t', 0, false ];
   while (true) {
-    while (programCode.charAt(programCounter) != '\t'){ programCounter++; } // skip to the next operator which is prefaced by a '\t' 
-    programCounter++;
+    // skip forward until after \t
+    programCounter += /^[^\t]*/.exec(programCode.substr(programCounter))[0].length + 1;
     InterpretOp();
     if(exitlevel){ return outbuf; }
   }
 }
+exports.META_II = META_II;
 inpExample = `
-fern  := 5 + 6;
-ace   := fern * 5;
+fern  := 5 + 61;
+ace   := fern * 432;
 waldo := fern + alpha / -beta^gamma;`;
 codeExample = `
 	ADR AEXP
@@ -417,4 +331,3 @@ L30
 L28
 	R
 	END`;
-exports.META_II = META_II;

@@ -38,5 +38,9 @@ And in it,
     result = META_II(inpExample, codeExample);
     console.log( result );
 
+TODO:
 
+ * get rid of while loops that test each character, use regex instead.
+ * convert stack frames to structured objects
+ * write meta compiler with new version
 
