@@ -15,6 +15,7 @@ var gnlabel; // next numeric label to use
 var token; // token string from parse
 var outstr; // output string from code ejection
 var tokenflag; // collecting token characters
+var vm = {}; // the virtual machine commands
 
 function spaces(){
   while(/[ \t\n]/.test(inbuf.charAt(inputPointer))){ inputPointer++ };
@@ -32,7 +33,7 @@ function findlabel(s){
   }
 }
 
-function runTST(s){
+vm.TST = (s) => {
   var i;
   spaces();
   flag = true; i = 0; // test string case insensitive
@@ -45,40 +46,35 @@ function runTST(s){
   }
 }
 
-function runID(){
+vm.ID = () => {
   spaces();
-  flag = ( ((inbuf.charAt(inputPointer) >= 'A') && (inbuf.charAt(inputPointer) <= 'Z')) ||
-           ((inbuf.charAt(inputPointer) >= 'a') && (inbuf.charAt(inputPointer) <= 'z')) );
+  flag = ( /[a-zA-Z]/.test(inbuf.charAt(inputPointer)) );
   if (flag) {
     token = '';
     while (flag){
       token = token + inbuf.charAt(inputPointer);
       inputPointer++;
-      flag = ( ((inbuf.charAt(inputPointer) >= 'A') && (inbuf.charAt(inputPointer) <= 'Z')) ||
-               ((inbuf.charAt(inputPointer) >= 'a') && (inbuf.charAt(inputPointer) <= 'z')) ||
-               ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9')) );
+      flag = ( /[a-zA-Z0-9]/.test(inbuf.charAt(inputPointer)) );
     }
     flag = true;
   }
 }
 
-function runNUM(){
+vm.NUM = () => {
   spaces();
-  flag = ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9'));
+  flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
   if (flag) {
     token = '';
     while (flag){
-      // add to token 
       token = token + inbuf.charAt(inputPointer);
       inputPointer++;
-      // accept numerals 
-      flag = ((inbuf.charAt(inputPointer) >= '0') && (inbuf.charAt(inputPointer) <= '9'));
+      flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
     }
     flag = true;
   }
 }
 
-function runSR(){
+vm.SR = () => {
   spaces();
   flag = (inbuf.charAt(inputPointer) == '\'');
   if (flag) {
@@ -94,7 +90,7 @@ function runSR(){
   }
 }
 
-function runADR(){ 
+vm.ADR = () => {
   gnlabel = 1;
   inputPointer = 0;
   margin = 0;
@@ -107,7 +103,7 @@ function runADR(){
   findlabel(symbolarg);
 }
 
-function runCLL(){
+vm.CLL = () => {
   stackframe++; // push and initialize a new stackframe
   stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
   stack[stackframe * stackframesize + 1] = 0;         // GN2
@@ -117,35 +113,38 @@ function runCLL(){
   findlabel(symbolarg);
 }
 
-function runEND(){
+vm.END = () => {
   exitlevel = true;
-  if (!flag) console.log('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed');
+  if (!flag){ console.log('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed'); }
 }
 
-function runR(){ 
-  if (stackframe == 0) {runEND(); return; };
+vm.R = () => {
+  if (stackframe == 0){
+    vm.END();
+    return;
+  };
   programCounter = stack[stackframe * stackframesize + 2]; // return programCounter
   margin = stack[stackframe * stackframesize + 4];
   stackframe--;                                // pop stackframe
 }
 
-function runSET (){
+vm.SET = () => {
   flag = true;
 }
 
-function runB (){
+vm.B = () => {
   findlabel(symbolarg);
 }
 
-function runBT (){
+vm.BT = () => {
   if (flag) findlabel(symbolarg);
 }
 
-function runBF (){
+vm.BF = () => {
   if (! flag) findlabel(symbolarg);
 }
 
-function runBE () {
+vm.BE = ()  => {
   var i; var j; var h;
   var msg; var ctx;
   if (flag) return; // only halt if there is an error
@@ -172,15 +171,15 @@ function runBE () {
   exitlevel = true;
 }
 
-function runCL(s){
+vm.CL = (s) => {
   out(s);
 }
 
-function runCI (){
+vm.CI = () => {
   out(token);
 }
 
-function runGN1(){
+vm.GN1 = () => {
   if (stack[stackframe * stackframesize + 0] == 0){
     stack[stackframe * stackframesize + 0] = gnlabel;
     gnlabel++;
@@ -188,7 +187,7 @@ function runGN1(){
   out('L' + stack[stackframe * stackframesize + 0]);
 }
 
-function runGN2(){
+vm.GN2 = () => {
   if (stack[stackframe * stackframesize + 1] == 0) {
     stack[stackframe * stackframesize + 1] = gnlabel;
     gnlabel++;
@@ -196,11 +195,11 @@ function runGN2(){
   out('B' + stack[stackframe * stackframesize + 1]);
 }
 
-function runLB(){
+vm.LB = () => {
   outstr = '';
 }
 
-function runOUT(){
+vm.OUT = () => {
   outbuf += outstr + '\n';
   outstr = '\t';
 }
@@ -215,19 +214,19 @@ function out(s){ // out - if necessary move to margin before output of s
   outstr += s;
 }
 // extensions to provide label and nested output definition
-// NL - generate newline (extended only, compare with runOUT)
-function runextNL(){
+// NL - generate newline (extended only, compare with vm.OUT)
+vm.NL = () => {
   // output current line
   outbuf += outstr + '\n';
   outstr = '';
 }
 
-function runextTB(){ // TB - add a tab to the output
+vm.TB = () => { // TB - add a tab to the output
   out('\t');
 }
 
-// GN - generate unique number (extended only, compare with runGN1)
-function runextGN (){
+// GN - generate unique number (extended only, compare with vm.GN1)
+vm.GN = () => {
   if (stack[stackframe * stackframesize + 0] == 0){
     stack[stackframe * stackframesize + 0] = gnlabel;
     gnlabel++;
@@ -236,55 +235,55 @@ function runextGN (){
 }
 
 // LMI - increase left margin (extended only)
-function runextLMI (){
+vm.LMI = () => {
   margin += 2;
 }
 
 // LMD - decrease left margin (extended only)
-function runextLMD (){
+vm.LMD = () => {
   margin -= 2;
 }
 
 // extensions to provide token definition
 // CE  - compare input char to code for equal
-function runextCE (s){
+vm.CE = (s) => {
   flag = (inbuf.charCodeAt(inputPointer) == s);
 }
 
 // CGE - compare input char to code for greater or equal
-function runextCGE (s){
+vm.CGE = (s) => {
   flag = (inbuf.charCodeAt(inputPointer) >= s);
 }
 
 // CLE - compare input char to code for less or equal
-function runextCLE (s){
+vm.CLE = (s) => {
   flag = (inbuf.charCodeAt(inputPointer) <= s);
 }
 
 // LCH - literal char code to token buffer (extended only)
-function runextLCH (){
+vm.LCH = () => {
   token = inbuf.charCodeAt(inputPointer);
   inputPointer++; // scan the character
 }
 
 // NOT - invert parse flag
-function runextNOT (){
+vm.NOT = () => {
   flag = !flag;
 }
 
 // TFT - set token flag true and clear token
-function runextTFT (){
+vm.TFT = () => {
   tokenflag = true;
   token = '';
 }
 
 // TFF - set token flag false
-function runextTFF (){
+vm.TFF = () => {
   tokenflag = false;
 }
 
 // SCN - if flag, scan input character; if token flag, add to token (extended only)
-function runextSCN (){
+vm.SCN = () => {
   if (flag) { // if taking token, add to token
     if (tokenflag) token = token + inbuf.charAt(inputPointer);
     inputPointer++; // scan the character
@@ -292,7 +291,7 @@ function runextSCN (){
 }
 
 // CC - copy char code to output
-function runextCC (s){
+vm.CC = (s) => {
   outstr = outstr + String.fromCharCode(s);
 }
 
@@ -338,47 +337,75 @@ function InterpretOp () {
   }
   // intrepreter op case branch
   switch (op) {
-    case 'ADR': argsymbol(); runADR(); return;          // ADR - specify starting rule
-    case 'B':   argsymbol(); runB(); return;            // B   - unconditional branch to label
-    case 'BT':  argsymbol(); runBT(); return;           // BT  - branch if switch true to label
-    case 'BF':  argsymbol(); runBF(); return;           // BF  - branch if switch false to label
-    case 'BE':  runBE(); return;                        // BE  - branch if switch false to error halt
-    case 'CLL': argsymbol(); runCLL(); return;          // CLL - call rule at label
-    case 'CL':  argstring(); runCL(stringarg); return;  // CL  - copy given string argument to output
-    case 'CI':  runCI(); return;                        // CI  - copy scanned token to output
-    case 'END': runEND(); return;                       // END - pseudo op, end of source
-    case 'GN1': runGN1(); return;                       // GN1 - make and output label 1
-    case 'GN2': runGN2(); return;                       // GN2 - make and output label 2
-    case 'ID':  runID(); return;                        // ID  - recognize identifier token
-    case 'LB':  runLB(); return;                        // LB  - start output in label field
-    case 'NUM': runNUM(); return;                       // NUM - recognize number token 
-    case 'OUT': runOUT(); return;                       // OUT - output out buffer with new line
-    case 'R':   runR(); return;                         // R   - return from rule call with CLL
-    case 'SET': runSET(); return;                       // SET - set switch true
-    case 'SR':  runSR(); return;                        // SR  - recognize string token including single quotes
-    case 'TST': argstring(); runTST(stringarg); return; // TST - test for given string argument, if found set switch
-    case 'GN':  runextGN(); return;                     // GN  - make and output unique number
-    case 'LMI': runextLMI(); return;                    // LMI - left margin increase
-    case 'LMD': runextLMD(); return;                    // LMD - left margin decrease
-    case 'NL':  runextNL(); return;                     // NL  - new line output
-    case 'TB':  runextTB(); return;                     // TB  - output a tab
-    case 'CE':  argsymbol(); runextCE(symbolarg); return;        // CE  - compare input char to code for equal
-    case 'CGE': argsymbol(); runextCGE(symbolarg); return;       // CGE - compare input char to code for greater or equal
-    case 'CLE': argsymbol(); runextCLE(symbolarg); return;       // CLE - compare input char to code for less or equal
-    case 'LCH': runextLCH(); return;                     // LCH - literal character code to token as string
-    case 'NOT': runextNOT(); return;                     // NOT - complement flag
-    case 'RF':  if (!flag) runR(); return;               // RF  - return if switch false
-    case 'SCN': runextSCN(); return;                     // SCN - if flag, scan input character; if token flag, add to token
-    case 'TFF': runextTFF(); return;                     // TFF - token flag set to false
-    case 'TFT': runextTFT(); return;                     // TFT - token flag set to true
+    case 'ADR': argsymbol(); vm.ADR(); return;          // ADR - specify starting rule
+    case 'B':   argsymbol(); vm.B(); return;            // B   - unconditional branch to label
+    case 'BT':  argsymbol(); vm.BT(); return;           // BT  - branch if switch true to label
+    case 'BF':  argsymbol(); vm.BF(); return;           // BF  - branch if switch false to label
+    case 'BE':  vm.BE(); return;                        // BE  - branch if switch false to error halt
+    case 'CLL': argsymbol(); vm.CLL(); return;          // CLL - call rule at label
+    case 'CL':  argstring(); vm.CL(stringarg); return;  // CL  - copy given string argument to output
+    case 'CI':  vm.CI(); return;                        // CI  - copy scanned token to output
+    case 'END': vm.END(); return;                       // END - pseudo op, end of source
+    case 'GN1': vm.GN1(); return;                       // GN1 - make and output label 1
+    case 'GN2': vm.GN2(); return;                       // GN2 - make and output label 2
+    case 'ID':  vm.ID(); return;                        // ID  - recognize identifier token
+    case 'LB':  vm.LB(); return;                        // LB  - start output in label field
+    case 'NUM': vm.NUM(); return;                       // NUM - recognize number token 
+    case 'OUT': vm.OUT(); return;                       // OUT - output out buffer with new line
+    case 'R':   vm.R(); return;                         // R   - return from rule call with CLL
+    case 'SET': vm.SET(); return;                       // SET - set switch true
+    case 'SR':  vm.SR(); return;                        // SR  - recognize string token including single quotes
+    case 'TST': argstring(); vm.TST(stringarg); return; // TST - test for given string argument, if found set switch
+    case 'GN':  vm.GN(); return;                     // GN  - make and output unique number
+    case 'LMI': vm.LMI(); return;                    // LMI - left margin increase
+    case 'LMD': vm.LMD(); return;                    // LMD - left margin decrease
+    case 'NL':  vm.NL(); return;                     // NL  - new line output
+    case 'TB':  vm.TB(); return;                     // TB  - output a tab
+    case 'CE':  argsymbol(); vm.CE(symbolarg); return;        // CE  - compare input char to code for equal
+    case 'CGE': argsymbol(); vm.CGE(symbolarg); return;       // CGE - compare input char to code for greater or equal
+    case 'CLE': argsymbol(); vm.CLE(symbolarg); return;       // CLE - compare input char to code for less or equal
+    case 'LCH': vm.LCH(); return;                     // LCH - literal character code to token as string
+    case 'NOT': vm.NOT(); return;                     // NOT - complement flag
+    case 'RF':  if (!flag) vm.R(); return;               // RF  - return if switch false
+    case 'SCN': vm.SCN(); return;                     // SCN - if flag, scan input character; if token flag, add to token
+    case 'TFF': vm.TFF(); return;                     // TFF - token flag set to false
+    case 'TFT': vm.TFT(); return;                     // TFT - token flag set to true
     // extensions for backtracking, error handling, and char code output
     case 'PFF': flag = false; return;                    // PFF - parse flag set to false
     case 'PFT': flag = true; return;                     // PFT - parse flag set to true (AKA SET)
-    case 'CC':  argsymbol(); runextCC(symbolarg); return;        // CC - copy char code to output
+    case 'CC':  argsymbol(); vm.CC(symbolarg); return;        // CC - copy char code to output
     default:
       console.log('ERROR: unknown interpret op \''+op+'\'');
       exitlevel = true;
-  }
+  }  
+  // if(/(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)/.test(op)){
+  //   argsymbol();
+  //   vm[op]();
+  //   return;
+  // }
+  // if(/(CL|TST)/.test(op)){
+  //   argstring();
+  //   vm[op](stringarg);
+  //   return;
+  // }
+  // if(/RF/.test(op)){
+  //   if (!flag){ vm.R(); }
+  //   return;
+  // }
+  // if(/PFF/.test(op)){
+  //   flag = false;
+  //   return;
+  // }
+  // if(/PFT/.test(op)){
+  //   flag = true;
+  //   return;
+  // }
+  // if(!vm[op]){
+  //   console.log('ERROR: unknown interpret op \''+op+'\'');
+  //   exitlevel = true;
+  // }
+  // vm[op]();
+  // return;
 }
 
 function META_II(inputPointer, code){
