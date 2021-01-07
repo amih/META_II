@@ -15,7 +15,6 @@ var gnlabel; // next numeric label to use
 var token; // token string from parse
 var outstr; // output string from code ejection
 var tokenflag; // collecting token characters
-var vm = {}; // the virtual machine commands
 
 function spaces(){
   while(/[ \t\n]/.test(inbuf.charAt(inputPointer))){ inputPointer++ };
@@ -25,7 +24,7 @@ function findlabel(s){
   var found;// fast goto
   programCounter = programCode.indexOf('\n'+s+'\n');
   found = (programCounter >= 0);
-  if (found){
+  if(found){
     programCounter = programCounter + s.length + 1;
   }else{
     console.log('label '+s+' not found!\n');
@@ -33,266 +32,236 @@ function findlabel(s){
   }
 }
 
-vm.TST = (s) => {
-  var i;
-  spaces();
-  flag = true; i = 0; // test string case insensitive
-  while(flag && (i < s.length)){
-    flag = (s.charAt(i).toUpperCase() == inbuf.charAt(inputPointer+i).toUpperCase());
-    i++;
-  }
-  if(flag){
-    inputPointer = inputPointer + s.length; // advance input if found
-  }
-}
-
-vm.ID = () => {
-  spaces();
-  flag = ( /[a-zA-Z]/.test(inbuf.charAt(inputPointer)) );
-  if (flag) {
-    token = '';
-    while (flag){
-      token = token + inbuf.charAt(inputPointer);
-      inputPointer++;
-      flag = ( /[a-zA-Z0-9]/.test(inbuf.charAt(inputPointer)) );
-    }
-    flag = true;
-  }
-}
-
-vm.NUM = () => {
-  spaces();
-  flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
-  if (flag) {
-    token = '';
-    while (flag){
-      token = token + inbuf.charAt(inputPointer);
-      inputPointer++;
-      flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
-    }
-    flag = true;
-  }
-}
-
-vm.SR = () => {
-  spaces();
-  flag = (inbuf.charAt(inputPointer) == '\'');
-  if (flag) {
-    token = '';
-    while (flag){
-      token = token + inbuf.charAt(inputPointer);
-      inputPointer++;
-      flag = (inbuf.charAt(inputPointer) != '\'');
-    }
-    token = token + '\'';
-    inputPointer++;
-    flag = true;
-  }
-}
-
-vm.ADR = () => {
-  gnlabel = 1;
-  inputPointer = 0;
-  margin = 0;
-  stackframe = 0; // initialize first stackframe 
-  stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
-  stack[stackframe * stackframesize + 1] = 0;         // GN2
-  stack[stackframe * stackframesize + 2] = -1;        // return programCounter value
-  stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
-  stack[stackframe * stackframesize + 4] = margin;    // left margin (extended only)
-  findlabel(symbolarg);
-}
-
-vm.CLL = () => {
-  stackframe++; // push and initialize a new stackframe
-  stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
-  stack[stackframe * stackframesize + 1] = 0;         // GN2
-  stack[stackframe * stackframesize + 2] = programCounter;// return programCounter value
-  stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
-  stack[stackframe * stackframesize + 4] = margin;    // left margin (needed on backtrack)
-  findlabel(symbolarg);
-}
-
-vm.END = () => {
-  exitlevel = true;
-  if (!flag){ console.log('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed'); }
-}
-
-vm.R = () => {
-  if (stackframe == 0){
-    vm.END();
-    return;
-  };
-  programCounter = stack[stackframe * stackframesize + 2]; // return programCounter
-  margin = stack[stackframe * stackframesize + 4];
-  stackframe--;                                // pop stackframe
-}
-
-vm.SET = () => {
-  flag = true;
-}
-
-vm.B = () => {
-  findlabel(symbolarg);
-}
-
-vm.BT = () => {
-  if (flag) findlabel(symbolarg);
-}
-
-vm.BF = () => {
-  if (! flag) findlabel(symbolarg);
-}
-
-vm.BE = ()  => {
-  var i; var j; var h;
-  var msg; var ctx;
-  if (flag) return; // only halt if there is an error
-  msg = 'SYNTAX ERROR:\n' +
-        'rule:' + stack[stackframe * stackframesize + 3] + '\n' +
-        'last token:' + token + '\n' +
-        'out string:' + outstr + '\n' +
-        'INPUT:' + '\n'; 
-  // provide scan context
-  i = inputPointer - 20;  if (i < 0) i = 0;
-  j = inputPointer + 20;  if (j > inbuf.length) j = inbuf.length;
-  ctx = inbuf.substring(i,inputPointer) + '<scan>' + inbuf.substring(inputPointer,j);
-  msg += ctx + '\n\n' + 'CHAR CODES:\n';
-  // ensure all character codes are visible
-  for (var h = 0; h < ctx.length; h++){
-    { if (ctx.charCodeAt(h) <= 32) 
-        { msg += '<' + ctx.charCodeAt(h) + '>'; }
-      else
-        { msg += ctx.charAt(h); }
-    }
-  }
-  msg += '\n';
-  console.log(msg);
-  exitlevel = true;
-}
-
-vm.CL = (s) => {
-  out(s);
-}
-
-vm.CI = () => {
-  out(token);
-}
-
-vm.GN1 = () => {
-  if (stack[stackframe * stackframesize + 0] == 0){
-    stack[stackframe * stackframesize + 0] = gnlabel;
-    gnlabel++;
-  }
-  out('L' + stack[stackframe * stackframesize + 0]);
-}
-
-vm.GN2 = () => {
-  if (stack[stackframe * stackframesize + 1] == 0) {
-    stack[stackframe * stackframesize + 1] = gnlabel;
-    gnlabel++;
-  }
-  out('B' + stack[stackframe * stackframesize + 1]);
-}
-
-vm.LB = () => {
-  outstr = '';
-}
-
-vm.OUT = () => {
-  outbuf += outstr + '\n';
-  outstr = '\t';
-}
-
-// extended runtime order codes not in original Meta II paper
 function out(s){ // out - if necessary move to margin before output of s
   var col;
-  if ((margin > 0) && (outstr.length == 0)) {
+  if((margin > 0) && (outstr.length == 0)) {
     col = 0; // advance to left margin
     while (col < margin) { outstr = outstr + ' '; col++; };
   }
   outstr += s;
 }
-// extensions to provide label and nested output definition
-// NL - generate newline (extended only, compare with vm.OUT)
-vm.NL = () => {
-  // output current line
-  outbuf += outstr + '\n';
-  outstr = '';
-}
 
-vm.TB = () => { // TB - add a tab to the output
-  out('\t');
-}
-
-// GN - generate unique number (extended only, compare with vm.GN1)
-vm.GN = () => {
-  if (stack[stackframe * stackframesize + 0] == 0){
-    stack[stackframe * stackframesize + 0] = gnlabel;
-    gnlabel++;
-  }
-  out(stack[stackframe * stackframesize + 0]);
-}
-
-// LMI - increase left margin (extended only)
-vm.LMI = () => {
-  margin += 2;
-}
-
-// LMD - decrease left margin (extended only)
-vm.LMD = () => {
-  margin -= 2;
-}
-
-// extensions to provide token definition
-// CE  - compare input char to code for equal
-vm.CE = (s) => {
-  flag = (inbuf.charCodeAt(inputPointer) == s);
-}
-
-// CGE - compare input char to code for greater or equal
-vm.CGE = (s) => {
-  flag = (inbuf.charCodeAt(inputPointer) >= s);
-}
-
-// CLE - compare input char to code for less or equal
-vm.CLE = (s) => {
-  flag = (inbuf.charCodeAt(inputPointer) <= s);
-}
-
-// LCH - literal char code to token buffer (extended only)
-vm.LCH = () => {
-  token = inbuf.charCodeAt(inputPointer);
-  inputPointer++; // scan the character
-}
-
-// NOT - invert parse flag
-vm.NOT = () => {
-  flag = !flag;
-}
-
-// TFT - set token flag true and clear token
-vm.TFT = () => {
-  tokenflag = true;
-  token = '';
-}
-
-// TFF - set token flag false
-vm.TFF = () => {
-  tokenflag = false;
-}
-
-// SCN - if flag, scan input character; if token flag, add to token (extended only)
-vm.SCN = () => {
-  if (flag) { // if taking token, add to token
-    if (tokenflag) token = token + inbuf.charAt(inputPointer);
+var vm = {
+  TST: (s) => {
+    var i;
+    spaces();
+    flag = true; i = 0; // test string case insensitive
+    while(flag && (i < s.length)){
+      flag = (s.charAt(i).toUpperCase() == inbuf.charAt(inputPointer+i).toUpperCase());
+      i++;
+    }
+    if(flag){
+      inputPointer = inputPointer + s.length; // advance input if found
+    }
+  },
+  ID: () => {
+    spaces();
+    flag = ( /[a-zA-Z]/.test(inbuf.charAt(inputPointer)) );
+    if(flag) {
+      token = '';
+      while (flag){
+        token = token + inbuf.charAt(inputPointer);
+        inputPointer++;
+        flag = ( /[a-zA-Z0-9]/.test(inbuf.charAt(inputPointer)) );
+      }
+      flag = true;
+    }
+  },
+  NUM: () => {
+    spaces();
+    flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
+    if(flag) {
+      token = '';
+      while (flag){
+        token = token + inbuf.charAt(inputPointer);
+        inputPointer++;
+        flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
+      }
+      flag = true;
+    }
+  },
+  SR: () => {
+    spaces();
+    flag = (inbuf.charAt(inputPointer) == '\'');
+    if(flag) {
+      token = '';
+      while (flag){
+        token = token + inbuf.charAt(inputPointer);
+        inputPointer++;
+        flag = (inbuf.charAt(inputPointer) != '\'');
+      }
+      token = token + '\'';
+      inputPointer++;
+      flag = true;
+    }
+  },
+  ADR: () => {
+    gnlabel = 1;
+    inputPointer = 0;
+    margin = 0;
+    stackframe = 0; // initialize first stackframe 
+    stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
+    stack[stackframe * stackframesize + 1] = 0;         // GN2
+    stack[stackframe * stackframesize + 2] = -1;        // return programCounter value
+    stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
+    stack[stackframe * stackframesize + 4] = margin;    // left margin (extended only)
+    findlabel(symbolarg);
+  },
+  CLL: () => {
+    stackframe++; // push and initialize a new stackframe
+    stack[stackframe * stackframesize + 0] = 0;         // GN1  also GN (extended only)
+    stack[stackframe * stackframesize + 1] = 0;         // GN2
+    stack[stackframe * stackframesize + 2] = programCounter;// return programCounter value
+    stack[stackframe * stackframesize + 3] = symbolarg; // rule name called for error messages
+    stack[stackframe * stackframesize + 4] = margin;    // left margin (needed on backtrack)
+    findlabel(symbolarg);
+  },
+  END: () => {
+    exitlevel = true;
+    if(!flag){ console.log('first rule "'+ stack[stackframe * stackframesize + 3] + '" failed'); }
+  },
+  R: () => {
+    if(stackframe == 0){
+      vm.END();
+      return;
+    };
+    programCounter = stack[stackframe * stackframesize + 2]; // return programCounter
+    margin = stack[stackframe * stackframesize + 4];
+    stackframe--;                                // pop stackframe
+  },
+  SET: () => {
+    flag = true;
+  },
+  B: () => {
+    findlabel(symbolarg);
+  },
+  BT: () => {
+    if(flag) findlabel(symbolarg);
+  },
+  BF: () => {
+    if(! flag) findlabel(symbolarg);
+  },
+  BE: ()  => {
+    var i; var j; var h;
+    var msg; var ctx;
+    if(flag) return; // only halt if there is an error
+    msg = 'SYNTAX ERROR:\n' +
+          'rule:' + stack[stackframe * stackframesize + 3] + '\n' +
+          'last token:' + token + '\n' +
+          'out string:' + outstr + '\n' +
+          'INPUT:' + '\n'; 
+    // provide scan context
+    i = inputPointer - 20;  if(i < 0) i = 0;
+    j = inputPointer + 20;  if(j > inbuf.length) j = inbuf.length;
+    ctx = inbuf.substring(i,inputPointer) + '<scan>' + inbuf.substring(inputPointer,j);
+    msg += ctx + '\n\n' + 'CHAR CODES:\n';
+    // ensure all character codes are visible
+    for (var h = 0; h < ctx.length; h++){
+      { if(ctx.charCodeAt(h) <= 32) 
+          { msg += '<' + ctx.charCodeAt(h) + '>'; }
+        else
+          { msg += ctx.charAt(h); }
+      }
+    }
+    msg += '\n';
+    console.log(msg);
+    exitlevel = true;
+  },
+  CL: (s) => {
+    out(s);
+  },
+  CI: () => {
+    out(token);
+  },
+  GN1: () => {
+    if(stack[stackframe * stackframesize + 0] == 0){
+      stack[stackframe * stackframesize + 0] = gnlabel;
+      gnlabel++;
+    }
+    out('L' + stack[stackframe * stackframesize + 0]);
+  },
+  GN2: () => {
+    if(stack[stackframe * stackframesize + 1] == 0) {
+      stack[stackframe * stackframesize + 1] = gnlabel;
+      gnlabel++;
+    }
+    out('B' + stack[stackframe * stackframesize + 1]);
+  },
+  LB: () => {
+    outstr = '';
+  },
+  OUT: () => {
+    outbuf += outstr + '\n';
+    outstr = '\t';
+  },
+  // extensions to provide label and nested output definition
+  // NL - generate newline (extended only, compare with vm-OUT)
+  NL: () => {
+    // output current line
+    outbuf += outstr + '\n';
+    outstr = '';
+  },
+  TB: () => { // TB - add a tab to the output
+    out('\t');
+  },
+  // GN - generate unique number (extended only, compare with vm-GN1)
+  GN: () => {
+    if(stack[stackframe * stackframesize + 0] == 0){
+      stack[stackframe * stackframesize + 0] = gnlabel;
+      gnlabel++;
+    }
+    out(stack[stackframe * stackframesize + 0]);
+  },
+  // LMI - increase left margin (extended only)
+  LMI: () => {
+    margin += 2;
+  },
+  // LMD - decrease left margin (extended only)
+  LMD: () => {
+    margin -= 2;
+  },
+  // extensions to provide token definition
+  // CE  - compare input char to code for equal
+  CE: (s) => {
+    flag = (inbuf.charCodeAt(inputPointer) == s);
+  },
+  // CGE - compare input char to code for greater or equal
+  CGE: (s) => {
+    flag = (inbuf.charCodeAt(inputPointer) >= s);
+  },
+  // CLE - compare input char to code for less or equal
+  CLE: (s) => {
+    flag = (inbuf.charCodeAt(inputPointer) <= s);
+  },
+  // LCH - literal char code to token buffer (extended only)
+  LCH: () => {
+    token = inbuf.charCodeAt(inputPointer);
     inputPointer++; // scan the character
-  }
-}
-
-// CC - copy char code to output
-vm.CC = (s) => {
-  outstr = outstr + String.fromCharCode(s);
+  },
+  // NOT - invert parse flag
+  NOT: () => {
+    flag = !flag;
+  },
+  // TFT - set token flag true and clear token
+  TFT: () => {
+    tokenflag = true;
+    token = '';
+  },
+  // TFF - set token flag false
+  TFF: () => {
+    tokenflag = false;
+  },
+  // SCN - if flag, scan input character; if token flag, add to token (extended only)
+  SCN: () => {
+    if(flag) { // if taking token, add to token
+      if(tokenflag) token = token + inbuf.charAt(inputPointer);
+      inputPointer++; // scan the character
+    }
+  },
+  // CC - copy char code to output
+  CC: (s) => {
+    outstr = outstr + String.fromCharCode(s);
+  },
 }
 
 function argstring (){
@@ -324,88 +293,36 @@ function argsymbol(){
 }
 
 function InterpretOp () {
-  var oc;
-  var op;
-  // assumes programCounter on operator in line
-  oc = programCounter; op = '';
+  var oc = programCounter;
+  var op = '';
   // accrete operator of upper alpha and numeral
   while ( (oc < programCode.length) &&
           (((programCode.charAt(oc) >= 'A') && (programCode.charAt(oc) <= 'Z')) ||
            ((programCode.charAt(programCounter) >= 'a') && (programCode.charAt(programCounter) <= 'z')) ||
            ((programCode.charAt(oc) >= '0') && (programCode.charAt(oc) <= '9'))) ){
-    op = op + programCode.charAt(oc); oc++;
+    op += programCode.charAt(oc);
+    oc++;
   }
-  // intrepreter op case branch
-  switch (op) {
-    case 'ADR': argsymbol(); vm.ADR(); return;          // ADR - specify starting rule
-    case 'B':   argsymbol(); vm.B(); return;            // B   - unconditional branch to label
-    case 'BT':  argsymbol(); vm.BT(); return;           // BT  - branch if switch true to label
-    case 'BF':  argsymbol(); vm.BF(); return;           // BF  - branch if switch false to label
-    case 'BE':  vm.BE(); return;                        // BE  - branch if switch false to error halt
-    case 'CLL': argsymbol(); vm.CLL(); return;          // CLL - call rule at label
-    case 'CL':  argstring(); vm.CL(stringarg); return;  // CL  - copy given string argument to output
-    case 'CI':  vm.CI(); return;                        // CI  - copy scanned token to output
-    case 'END': vm.END(); return;                       // END - pseudo op, end of source
-    case 'GN1': vm.GN1(); return;                       // GN1 - make and output label 1
-    case 'GN2': vm.GN2(); return;                       // GN2 - make and output label 2
-    case 'ID':  vm.ID(); return;                        // ID  - recognize identifier token
-    case 'LB':  vm.LB(); return;                        // LB  - start output in label field
-    case 'NUM': vm.NUM(); return;                       // NUM - recognize number token 
-    case 'OUT': vm.OUT(); return;                       // OUT - output out buffer with new line
-    case 'R':   vm.R(); return;                         // R   - return from rule call with CLL
-    case 'SET': vm.SET(); return;                       // SET - set switch true
-    case 'SR':  vm.SR(); return;                        // SR  - recognize string token including single quotes
-    case 'TST': argstring(); vm.TST(stringarg); return; // TST - test for given string argument, if found set switch
-    case 'GN':  vm.GN(); return;                     // GN  - make and output unique number
-    case 'LMI': vm.LMI(); return;                    // LMI - left margin increase
-    case 'LMD': vm.LMD(); return;                    // LMD - left margin decrease
-    case 'NL':  vm.NL(); return;                     // NL  - new line output
-    case 'TB':  vm.TB(); return;                     // TB  - output a tab
-    case 'CE':  argsymbol(); vm.CE(symbolarg); return;        // CE  - compare input char to code for equal
-    case 'CGE': argsymbol(); vm.CGE(symbolarg); return;       // CGE - compare input char to code for greater or equal
-    case 'CLE': argsymbol(); vm.CLE(symbolarg); return;       // CLE - compare input char to code for less or equal
-    case 'LCH': vm.LCH(); return;                     // LCH - literal character code to token as string
-    case 'NOT': vm.NOT(); return;                     // NOT - complement flag
-    case 'RF':  if (!flag) vm.R(); return;               // RF  - return if switch false
-    case 'SCN': vm.SCN(); return;                     // SCN - if flag, scan input character; if token flag, add to token
-    case 'TFF': vm.TFF(); return;                     // TFF - token flag set to false
-    case 'TFT': vm.TFT(); return;                     // TFT - token flag set to true
-    // extensions for backtracking, error handling, and char code output
-    case 'PFF': flag = false; return;                    // PFF - parse flag set to false
-    case 'PFT': flag = true; return;                     // PFT - parse flag set to true (AKA SET)
-    case 'CC':  argsymbol(); vm.CC(symbolarg); return;        // CC - copy char code to output
-    default:
-      console.log('ERROR: unknown interpret op \''+op+'\'');
-      exitlevel = true;
-  }  
-  // if(/(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)/.test(op)){
-  //   argsymbol();
-  //   vm[op]();
-  //   return;
-  // }
-  // if(/(CL|TST)/.test(op)){
-  //   argstring();
-  //   vm[op](stringarg);
-  //   return;
-  // }
-  // if(/RF/.test(op)){
-  //   if (!flag){ vm.R(); }
-  //   return;
-  // }
-  // if(/PFF/.test(op)){
-  //   flag = false;
-  //   return;
-  // }
-  // if(/PFT/.test(op)){
-  //   flag = true;
-  //   return;
-  // }
-  // if(!vm[op]){
-  //   console.log('ERROR: unknown interpret op \''+op+'\'');
-  //   exitlevel = true;
-  // }
-  // vm[op]();
-  // return;
+  if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ argsymbol(); }
+  if(/\b(CL|TST)\b/.test(op)){ argstring(); }// sets the stringarg
+  if(/\bRF\b/.test(op)){
+    if(!flag){ vm['R'](); }
+    return;
+  }
+  if(/\bPFF\b/.test(op)){
+    flag = false;
+    return;
+  }
+  if(/\bPFT\b/.test(op)){
+    flag = true;
+    return;
+  }
+  if(!vm[op]){
+    console.log('ERROR: unknown interpret op \''+op+'\'');
+    exitlevel = true;
+    return;
+  }
+  vm[op](stringarg);
 }
 
 function META_II(inputPointer, code){
@@ -417,13 +334,10 @@ function META_II(inputPointer, code){
   programCounter = 0;
   exitlevel = false;
   while (true) {
-    // skip to the next operator which is prefaced by a '\t' 
-    while (programCode.charAt(programCounter) != '\t'){
-      programCounter++;
-    }
+    while (programCode.charAt(programCounter) != '\t'){ programCounter++; } // skip to the next operator which is prefaced by a '\t' 
     programCounter++;
     InterpretOp();
-    if (exitlevel) break;
+    if(exitlevel){ break; }
   }
   return outbuf;
 }
