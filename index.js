@@ -15,32 +15,25 @@ var gnlabel; // next numeric label to use
 var token; // token string from parse
 var outstr; // output string from code ejection
 var tokenflag; // collecting token characters
-
 function spaces(){
   while(/[ \t\n]/.test(inbuf.charAt(inputPointer))){ inputPointer++ };
 }
-
 function findlabel(s){
-  var found;// fast goto
   programCounter = programCode.indexOf('\n'+s+'\n');
-  found = (programCounter >= 0);
-  if(found){
-    programCounter = programCounter + s.length + 1;
+  if(programCounter >= 0){
+    programCounter += s.length + 1;
   }else{
     console.log('label '+s+' not found!\n');
     exitlevel = true;
   }
 }
-
 function out(s){ // out - if necessary move to margin before output of s
-  var col;
   if((margin > 0) && (outstr.length == 0)) {
-    col = 0; // advance to left margin
-    while (col < margin) { outstr = outstr + ' '; col++; };
+    var col = 0; // advance to left margin
+    while (col < margin) { outstr += ' '; col++; };
   }
   outstr += s;
 }
-
 var vm = {
   TST: (s) => {
     var i;
@@ -51,7 +44,7 @@ var vm = {
       i++;
     }
     if(flag){
-      inputPointer = inputPointer + s.length; // advance input if found
+      inputPointer += s.length; // advance input if found
     }
   },
   ID: () => {
@@ -60,7 +53,7 @@ var vm = {
     if(flag) {
       token = '';
       while (flag){
-        token = token + inbuf.charAt(inputPointer);
+        token += inbuf.charAt(inputPointer);
         inputPointer++;
         flag = ( /[a-zA-Z0-9]/.test(inbuf.charAt(inputPointer)) );
       }
@@ -73,7 +66,7 @@ var vm = {
     if(flag) {
       token = '';
       while (flag){
-        token = token + inbuf.charAt(inputPointer);
+        token += inbuf.charAt(inputPointer);
         inputPointer++;
         flag = ( /[0-9]/.test(inbuf.charAt(inputPointer)) );
       }
@@ -90,7 +83,7 @@ var vm = {
         inputPointer++;
         flag = (inbuf.charAt(inputPointer) != '\'');
       }
-      token = token + '\'';
+      token += '\'';
       inputPointer++;
       flag = true;
     }
@@ -129,19 +122,11 @@ var vm = {
     margin = stack[stackframe * stackframesize + 4];
     stackframe--;                                // pop stackframe
   },
-  SET: () => {
-    flag = true;
-  },
-  B: () => {
-    findlabel(symbolarg);
-  },
-  BT: () => {
-    if(flag) findlabel(symbolarg);
-  },
-  BF: () => {
-    if(! flag) findlabel(symbolarg);
-  },
-  BE: ()  => {
+  SET: () => { flag = true; },
+  B:   () => { findlabel(symbolarg); },
+  BT:  () => { if( flag) findlabel(symbolarg); },
+  BF:  () => { if(!flag) findlabel(symbolarg); },
+  BE:  () => {
     var i; var j; var h;
     var msg; var ctx;
     if(flag) return; // only halt if there is an error
@@ -167,12 +152,8 @@ var vm = {
     console.log(msg);
     exitlevel = true;
   },
-  CL: (s) => {
-    out(s);
-  },
-  CI: () => {
-    out(token);
-  },
+  CL: (s) => { out(s); },
+  CI: () => { out(token); },
   GN1: () => {
     if(stack[stackframe * stackframesize + 0] == 0){
       stack[stackframe * stackframesize + 0] = gnlabel;
@@ -187,83 +168,34 @@ var vm = {
     }
     out('B' + stack[stackframe * stackframesize + 1]);
   },
-  LB: () => {
-    outstr = '';
-  },
-  OUT: () => {
-    outbuf += outstr + '\n';
-    outstr = '\t';
-  },
-  // extensions to provide label and nested output definition
-  // NL - generate newline (extended only, compare with vm-OUT)
-  NL: () => {
-    // output current line
-    outbuf += outstr + '\n';
-    outstr = '';
-  },
-  TB: () => { // TB - add a tab to the output
-    out('\t');
-  },
-  // GN - generate unique number (extended only, compare with vm-GN1)
-  GN: () => {
+  LB:  () => { outstr = ''; },
+  OUT: () => { outbuf += outstr + '\n'; outstr = '\t'; },
+  NL:  () => { outbuf += outstr + '\n'; outstr = ''; }, // output current line with new line char
+  TB:  () => { out('\t'); }, // TB - add a tab to the output
+  GN:  () => { // GN - generate unique number (extended only, compare with vm-GN1)
     if(stack[stackframe * stackframesize + 0] == 0){
       stack[stackframe * stackframesize + 0] = gnlabel;
       gnlabel++;
     }
     out(stack[stackframe * stackframesize + 0]);
   },
-  // LMI - increase left margin (extended only)
-  LMI: () => {
-    margin += 2;
-  },
-  // LMD - decrease left margin (extended only)
-  LMD: () => {
-    margin -= 2;
-  },
-  // extensions to provide token definition
-  // CE  - compare input char to code for equal
-  CE: (s) => {
-    flag = (inbuf.charCodeAt(inputPointer) == s);
-  },
-  // CGE - compare input char to code for greater or equal
-  CGE: (s) => {
-    flag = (inbuf.charCodeAt(inputPointer) >= s);
-  },
-  // CLE - compare input char to code for less or equal
-  CLE: (s) => {
-    flag = (inbuf.charCodeAt(inputPointer) <= s);
-  },
-  // LCH - literal char code to token buffer (extended only)
-  LCH: () => {
-    token = inbuf.charCodeAt(inputPointer);
-    inputPointer++; // scan the character
-  },
-  // NOT - invert parse flag
-  NOT: () => {
-    flag = !flag;
-  },
-  // TFT - set token flag true and clear token
-  TFT: () => {
-    tokenflag = true;
-    token = '';
-  },
-  // TFF - set token flag false
-  TFF: () => {
-    tokenflag = false;
-  },
-  // SCN - if flag, scan input character; if token flag, add to token (extended only)
-  SCN: () => {
+  LMI: ()  => { margin += 2; }, // LMI - increase left margin (extended only)
+  LMD: ()  => { margin -= 2; }, // LMD - decrease left margin (extended only)
+  CE:  (s) => { flag = (inbuf.charCodeAt(inputPointer) == s); }, // CE  - compare input char to code for equal
+  CGE: (s) => { flag = (inbuf.charCodeAt(inputPointer) >= s); }, // CGE - compare input char to code for greater or equal
+  CLE: (s) => { flag = (inbuf.charCodeAt(inputPointer) <= s); }, // CLE - compare input char to code for less or equal
+  LCH: ()  => { token = inbuf.charCodeAt(inputPointer); inputPointer++; }, // LCH - literal char code to token buffer (extended only)
+  NOT: ()  => { flag = !flag; }, // NOT - invert parse flag
+  TFT: ()  => { tokenflag = true; token = ''; }, // TFT - set token flag true and clear token
+  TFF: ()  => { tokenflag = false; }, // TFF - set token flag false
+  SCN: ()  => { // SCN - if flag, scan input character; if token flag, add to token (extended only)
     if(flag) { // if taking token, add to token
       if(tokenflag) token = token + inbuf.charAt(inputPointer);
       inputPointer++; // scan the character
     }
   },
-  // CC - copy char code to output
-  CC: (s) => {
-    outstr = outstr + String.fromCharCode(s);
-  },
+  CC: (s) => { outstr += String.fromCharCode(s); }, // CC - copy char code to output
 }
-
 function argstring (){
   stringarg = '';
   // find the beginning of the string 
@@ -271,12 +203,11 @@ function argstring (){
   // concat string together
   programCounter++;
   while (programCode.charAt(programCounter) != '\''){
-    stringarg = stringarg + programCode.charAt(programCounter);
+    stringarg += programCode.charAt(programCounter);
     programCounter++;
   }
   programCounter++; // skip terminating single quote
 }
-
 function argsymbol(){
   symbolarg = ''; // reset symbol 
   // skip over the operator (not tab and not blank)
@@ -291,14 +222,12 @@ function argsymbol(){
     programCounter++;
   }
 }
-
 function InterpretOp () {
   var oc = programCounter;
   var op = '';
   // accrete operator of upper alpha and numeral
   while ( (oc < programCode.length) &&
           (((programCode.charAt(oc) >= 'A') && (programCode.charAt(oc) <= 'Z')) ||
-           ((programCode.charAt(programCounter) >= 'a') && (programCode.charAt(programCounter) <= 'z')) ||
            ((programCode.charAt(oc) >= '0') && (programCode.charAt(oc) <= '9'))) ){
     op += programCode.charAt(oc);
     oc++;
@@ -324,10 +253,9 @@ function InterpretOp () {
   }
   vm[op](stringarg);
 }
-
-function META_II(inputPointer, code){
+function META_II(input, code){
   stack = new Array(600); // create stack of stackframes
-  inbuf = inputPointer; // snap copy of the input and interpreter 
+  inbuf = input; // snap copy of the input and interpreter 
   programCode = code;
   outbuf = ''; // clear the output
   outstr = '\t'; // default initial output to command field (override with LB)
@@ -337,16 +265,13 @@ function META_II(inputPointer, code){
     while (programCode.charAt(programCounter) != '\t'){ programCounter++; } // skip to the next operator which is prefaced by a '\t' 
     programCounter++;
     InterpretOp();
-    if(exitlevel){ break; }
+    if(exitlevel){ return outbuf; }
   }
-  return outbuf;
 }
-
 inpExample = `
-fern:=5+6;
-ace:=fern*5;
-waldo:=fern+alpha/-beta^gamma;
-`;
+fern  := 5 + 6;
+ace   := fern * 5;
+waldo := fern + alpha / -beta^gamma;`;
 codeExample = `
 	ADR AEXP
 AEXP
@@ -491,6 +416,5 @@ L29
 L30
 L28
 	R
-	END
-`;
+	END`;
 exports.META_II = META_II;
