@@ -1,0 +1,106 @@
+.SYNTAX SQL2EOSIO
+
+SQL2EOSIO = 'CREATE' 'TABLE' .ID '(' 
+    FIELD $ FIELD 
+')';
+
+FIELD = .ID FIELDTYPE ',';
+
+FIELDTYPE = 'name'  /
+            'int'   /
+            'string';
+
+OUTPUT = '.OUT' '('$OUT1 ')' ;
+
+OUT1 = '*'     .OUT('CI')   / 
+       .STRING .OUT('CL '*) /
+       '#'     .OUT('GN')   /
+       '.NL'   .OUT('NL')   /
+       '.LB'   .OUT('LB')   /
+       '.TB'   .OUT('TB')   /
+       '.LM+'  .OUT('LMI')  /
+       '.LM-'  .OUT('LMD')  ;
+.END
+//////////////////////////////////////
+CREATE TABLE person (
+  accountname name,
+  id int(28),
+  first_name string(50),
+  last_name string(50),
+  street string(50),
+  city string(20),
+  state string(2),
+  email string(70),
+  yearofbirth int,
+  PRIMARY KEY ('id'),
+  UNIQUE KEY 'email_UNIQUE' ('email')
+);
+//////////////////////////////////////
+// TODO: add validations on insert, enforce string size limits from the create table definition
+#include <eosio/eosio.hpp>
+using namespace eosio;
+class [[eosio::contract("person")]] person : public eosio::contract {
+public:
+private:
+  struct [[eosio::table]] person {
+    name key;
+    std::string first_name;
+    std::string last_name;
+    std::string street;
+    std::string city;
+    std::string state;
+    uint64_t primary_key() const { return key.value;}
+  };
+  using address_index = eosio::multi_index<"person"_n, person>;
+};
+//////////////////////////////////////
+SQL2EOSIO = '.SYNTAX' .ID .OUT('ADR ' *)
+          $ ST 
+          '.END' .OUT('END') ;
+
+ST = .ID .LABEL * '=' EX1 ';' .OUT('R') ;
+
+EX1 = EX2 $('/' .OUT('BT ' *1) EX2 )
+      .LABEL *1 ;
+
+EX2 = (EX3 .OUT('BF ' *1) / OUTPUT)
+      $(EX3 .OUT('BE') / OUTPUT)
+      .LABEL *1 ;
+
+EX3 = .ID       .OUT('CLL '*) /
+      .STRING   .OUT('TST '*) /
+      '.ID'     .OUT('ID')    /
+      '.NUMBER' .OUT('NUM')   /
+      '.STRING' .OUT('SR')    /
+      '(' EX1 ')'             /
+      '.EMPTY'  .OUT('SET')   /
+      '$' .LABEL *1 EX3 .OUT('BT ' *1) .OUT('SET') ;
+
+OUTPUT = '.OUT' '('$OUT1 ')' ;
+
+OUT1 = '*'     .OUT('CI')   / 
+       .STRING .OUT('CL '*) /
+       '#'     .OUT('GN')   /
+       '.NL'   .OUT('NL')   /
+       '.LB'   .OUT('LB')   /
+       '.TB'   .OUT('TB')   /
+       '.LM+'  .OUT('LMI')  /
+       '.LM-'  .OUT('LMD')  ;
+
+.END
+
+.SYNTAX AEXP
+
+AEXP = AS $AS .,
+AS = .ID .OUT('address ' *) ':=' EX1 .OUT('store') ';' .,
+EX1 = EX2 $('+' EX2 .OUT('add') /
+            '-' EX2 .OUT('sub') ) .,
+EX2 = EX3 $('*' EX3 .OUT('mpy') /
+            '/' EX3 .OUT('div') ) .,
+EX3 = EX4 $('^' EX3 .OUT('exp')) .,
+EX4 = '+' EX5 / '-' EX5 .OUT('minus') / EX5 .,
+EX5 = .ID  .OUT('load ' *) /
+      .NUMBER .OUT('literal ' *) /
+      '(' EX1 ')' .,
+
+.END

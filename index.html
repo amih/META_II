@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script>var exports = {};</script>
+  <script type="text/javascript" src="index.js?20210111"></script>
+  <title>SQL2EOS</title>
+  <style>
+    #ik, #ck, #ok {
+      width: 30%;
+      display: inline-block;
+      vertical-align: top;
+      height: 100px;
+      overflow-y: auto;
+      border: 1px solid lightgray;
+      padding: 2px;
+    }
+    #ik li.selected, #ck li.selected { background-color: aquamarine; }
+    #editors { height: 100%; }
+    textarea {
+      width: 30%;
+      height: 400px;
+    }
+    #ce.identical, #oe.identical{
+      background-color: aqua;
+    }
+  </style>
+</head>
+<body>
+  Open dev-tools --> console and try:<br><br>
+  META_II(input_i["i01. demo, AEXP example assignments"], code_c["c01. demo, AEXP assignments compiler c[i02,c02] "])<br><br>
+  <div id="keys">
+    <div id="ik"></div>
+    <div id="ck"></div>
+    <div id="ok"></div>
+  </div>
+  <div id="editors">
+    <textarea id="ie"></textarea>
+    <textarea id="ce"></textarea>
+    <textarea id="oe"></textarea>
+  </div>
+  <script>
+    let timeoutID;
+    const _log = console.log;
+    console.log = function(...arguments) {
+      $('#ok').text(arguments);
+      return _log.apply(console, arguments);
+    };
+    const compile = () => {
+      $('#ok').text('');
+      let res = META_II( $('#ie').val(), $('#ce').val() );
+      $('#oe').val(res.replace(/(^\n|\n$)/,''));
+      if( $('#ce').val() == $('#oe').val() && $('#ce').val().length > 0 ){
+        $('#ce, #oe').addClass('identical');
+      }else{
+        $('#ce, #oe').removeClass('identical');
+      }
+    }
+    const update = (type, ele, content) => {
+      // type: #i (input) or #c (code)
+      $(type + 'k li').removeClass('selected');
+      $(ele).addClass('selected');
+      $(type + 'e').val(content.replace(/(^\n|\n$)/,''));
+      compile();
+    }
+    $('#ik').append(Object.keys(input_i).map( e => '<li>' + e + '</li>').join(''));
+    $('#ck').append(Object.keys(code_c ).map( e => '<li>' + e + '</li>').join(''));
+    $('#ik li').click(e => { update('#i', e.target, input_i[$(e.target).text()]); });
+    $('#ck li').click(e => { update('#c', e.target, code_c [$(e.target).text()]); });
+    $('#ie, #ce').keyup( e => {
+      if(!!timeoutID){ clearTimeout(timeoutID); }
+      timeoutID = setTimeout(compile, 3*1000)
+    });
+  </script>
+</body>
+</html>
