@@ -1,5 +1,5 @@
 var programCounter, programCode, inputPointer, inbuf, outbuf, margin, exitlevel, flag, symbolarg,
-    stringarg, gnlabel, token, outstr, tokenflag, stackframe, stackframesize = 5; // stackframe (0=gn1, 1=gn2, 2=programCounter, 3=rule, 4=lm)
+    stringarg, gnlabel, token, outstr, tokenflag, stackframe, stackframesize = 5, opCounter; // stackframe (0=gn1, 1=gn2, 2=programCounter, 3=rule, 4=lm)
 function findlabel(s){
   programCounter = programCode.indexOf('\n'+s+'\n');
   if(programCounter >= 0){
@@ -19,7 +19,6 @@ var vm = {
     var result = inbuf.substr(inputPointer).match(new RegExp('^[ \t\n]*(?<arg>' + s + ')', 'i'));
     flag = !!result;
     if(flag){
-      token = "'" + result.groups.arg + "'";
       inputPointer += result[0].length;
     }
   },
@@ -32,7 +31,7 @@ var vm = {
     }
   },
   NUM: () => {
-    var result = inbuf.substr(inputPointer).match(/^[ \t\n]*(?<arg>[0-9]*)/);
+    var result = inbuf.substr(inputPointer).match(/^[ \t\n]*(?<arg>[0-9]+)/); // NB: [0-9]+ (the plus instead of asterisk) meaning, at least one digit!
     flag = !!result;
     if(flag){
       token = result.groups.arg;
@@ -136,16 +135,18 @@ var vm = {
   },
   LMI: ()  => { margin += 2; }, // increase left margin (extended only)
   LMD: ()  => { margin -= 2; }, // decrease left margin (extended only)
-  CE:  (s) => { flag = (inbuf.charCodeAt(inputPointer) == s); }, // compare input char to code for equal
-  CGE: (s) => { flag = (inbuf.charCodeAt(inputPointer) >= s); }, // compare input char to code for greater or equal
-  CLE: (s) => { flag = (inbuf.charCodeAt(inputPointer) <= s); }, // compare input char to code for less or equal
+  CE:  (s) => { flag = (inbuf.charCodeAt(inputPointer) == parseInt(s, 10)); }, // compare input char to code for equal
+  CGE: (s) => { flag = (inbuf.charCodeAt(inputPointer) >= parseInt(s, 10)); }, // compare input char to code for greater or equal
+  CLE: (s) => { flag = (inbuf.charCodeAt(inputPointer) <= parseInt(s, 10)); }, // compare input char to code for less or equal
   LCH: ()  => { token = inbuf.charCodeAt(inputPointer); inputPointer++; }, // literal char code to token buffer (extended only)
   NOT: ()  => { flag = !flag; }, // invert parse flag
   TFT: ()  => { tokenflag = true; token = ''; }, // set token flag true and clear token
   TFF: ()  => { tokenflag = false; }, // set token flag false
   SCN: ()  => { // if flag, scan input character; if token flag, add to token (extended only)
     if(flag) { // if taking token, add to token
-      if(tokenflag) token = token + inbuf.charAt(inputPointer);
+      if(tokenflag){
+        token += inbuf.charAt(inputPointer);
+      }
       inputPointer++; // scan the character
     }
   },
@@ -164,25 +165,23 @@ function argsymbol(){
 }
 function InterpretOp () {
   op = /[A-Z0-9]*/.exec(programCode.substr(programCounter))[0];
-  if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ argsymbol(); }
-  if(/\b(CL|TST)\b/.test(op)){ argstring(); }// sets the stringarg
+  if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ argsymbol(); vm[op](symbolarg); return; }
+  if(/\b(CL|TST)\b/.test(op)){ argstring(); vm[op](stringarg); return; }// sets the stringarg
   if(/\bRF\b/.test(op)){ if(!flag){ vm['R'](); } return; }
   if(/\bPFF\b/.test(op)){ flag = false; return; }
   if(/\bPFT\b/.test(op)){ flag = true; return; }
-  if(!vm[op]){
-    console.log('ERROR: unknown interpret op \''+op+'\'');
-    exitlevel = true;
-    return;
-  }
-  vm[op](stringarg);
+  if(!vm[op]){ console.log('ERROR: unknown interpret op \''+op+'\''); exitlevel = true; return; }
+  vm[op]();
 }
 function META_II(input, code){
-  [ stack, inbuf, programCode, outbuf, outstr, programCounter, exitlevel ] = [ new Array(600), input, code, '', '\t', 0, false ];
+  [ stack, inbuf, programCode, outbuf, outstr, programCounter, exitlevel, opCounter ] = [ new Array(600), input, code, '', '\t', 0, false, 0 ];
   while (true) {
+    if(opCounter>56000){ console.log('too many commands?'+opCounter); return outbuf;}
     // skip forward until after \t
     programCounter += /^[^\t]*/.exec(programCode.substr(programCounter))[0].length + 1;
     InterpretOp();
-    if(exitlevel){ return outbuf; }
+    opCounter++;
+    if(exitlevel){ console.log('programCounter:'+opCounter); return outbuf; }
   }
 }
 exports.META_II = META_II;
@@ -13937,3 +13936,1097 @@ compiler = {
   }
 
 }`
+
+input_i["ia01. change .OUT() to {}"] = `.SYNTAX PROGRAM
+
+PROGRAM = '.SYNTAX' .ID {'ADR ' *}
+          $ ST
+          '.END' {'END'} ;
+
+ST = .ID .LABEL * '=' EX1 ';' {'R'} ;
+
+EX1 = EX2 $('/' {'BT ' *1} EX2 )
+      .LABEL *1 ;
+
+EX2 = (EX3 {'BF ' *1} / OUTPUT)
+      $(EX3 {'BE'} / OUTPUT)
+      .LABEL *1 ;
+
+EX3 = .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '(' EX1 ')'             /
+      '.EMPTY'  {'SET'}   /
+      '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
+
+OUTPUT = ('{'$OUT1 '}' /
+          '.LABEL' {'LB'} OUT1)
+         {'OUT'} ;
+
+OUT1 = '*1'    {'GN1'}  /
+       '*2'    {'GN2'}  /
+       '*'     {'CI'}   /
+       .STRING {'CL '*} ;
+
+.END`;
+
+code_c['ca01. use {} instead of .OUT()'] = `	ADR PROGRAM
+PROGRAM
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	CL 'ADR '
+	CI
+	OUT
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	CL 'END'
+	OUT
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	OUT
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	CL 'R'
+	OUT
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	CL 'BT '
+	GN1
+	OUT
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	CL 'BF '
+	GN1
+	OUT
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	CL 'BE'
+	OUT
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	CL 'CLL '
+	CI
+	OUT
+L20
+	BT L21
+	SR
+	BF L22
+	CL 'TST '
+	CI
+	OUT
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	CL 'ID'
+	OUT
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	CL 'NUM'
+	OUT
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	CL 'SR'
+	OUT
+L25
+	BT L21
+	TST '('
+	BF L26
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L26
+	BT L21
+	TST '.EMPTY'
+	BF L27
+	CL 'SET'
+	OUT
+L27
+	BT L21
+	TST '$'
+	BF L28
+	LB
+	GN1
+	OUT
+	CLL EX3
+	BE
+	CL 'BT '
+	GN1
+	OUT
+	CL 'SET'
+	OUT
+L28
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L29
+L30
+	CLL OUT1
+	BT L30
+	SET
+	BE
+	TST '}'
+	BE
+L29
+	BT L31
+	TST '.LABEL'
+	BF L32
+	CL 'LB'
+	OUT
+	CLL OUT1
+	BE
+L32
+L31
+	BF L33
+	CL 'OUT'
+	OUT
+L33
+L34
+	R
+OUT1
+	TST '*1'
+	BF L35
+	CL 'GN1'
+	OUT
+L35
+	BT L36
+	TST '*2'
+	BF L37
+	CL 'GN2'
+	OUT
+L37
+	BT L36
+	TST '*'
+	BF L38
+	CL 'CI'
+	OUT
+L38
+	BT L36
+	SR
+	BF L39
+	CL 'CL '
+	CI
+	OUT
+L39
+L36
+	R
+	END`;
+
+input_i["ia02. replace .NL and .TB with \\n and \\t"] = `.SYNTAX PROGRAM
+
+  PROGRAM = '.SYNTAX' .ID {.LB \\t 'ADR ' * \\n}
+            $ ST
+            '.END' {\\t 'END' \\n} ;
+  
+  ST = .ID {.LB * \\n} '=' EX1 ';' {\\t 'R' \\n} ;
+  
+  EX1 = EX2 $('/' {\\t 'BT L'# \\n} EX2 )
+        {.LB 'L'# \\n} ;
+  
+  EX2 = (EX3 {\\t 'BF L'# \\n} / OUTPUT)
+        $(EX3 {\\t 'BE' \\n} / OUTPUT)
+        {.LB 'L'# \\n} ;
+  
+  EX3 = .ID       {\\t 'CLL '* \\n} /
+        .STRING   {\\t 'TST '* \\n} /
+        '.ID'     {\\t 'ID' \\n}    /
+        '.NUMBER' {\\t 'NUM' \\n}   /
+        '.STRING' {\\t 'SR' \\n}    /
+        '(' EX1 ')'                     /
+        '.EMPTY'  {\\t 'SET' \\n}   /
+        '$' {.LB 'L'# \\n} EX3 {\\t 'BT L'# \\n} {\t 'SET' \\n} ;
+  
+  OUTPUT = '{'$OUT1 '}' ;
+  
+  OUT1 = '*'     {\\t 'CI' \\n}   /
+         .STRING {\\t 'CL '* \\n} /
+         '#'     {\\t 'GN' \\n}   /
+         '\\n'   {\\t 'NL' \\n}   /
+         '.LB'   {\\t 'LB' \\n}   /
+         '\\t'   {\\t 'TB' \\n}   /
+         '.LM+'  {\\t 'LMI' \\n}  /
+         '.LM-'  {\\t 'LMD' \\n}  ;
+  
+  .END`
+
+  code_c["ca01. use \\n and \\t"] = `	ADR PROGRAM
+PROGRAM
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	LB
+	TB
+	CL 'ADR '
+	CI
+	NL
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	TB
+	CL 'END'
+	NL
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	NL
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	TB
+	CL 'R'
+	NL
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	TB
+	CL 'BT L'
+	GN
+	NL
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	TB
+	CL 'BF L'
+	GN
+	NL
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	TB
+	CL 'BE'
+	NL
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	TB
+	CL 'CLL '
+	CI
+	NL
+L20
+	BT L21
+	SR
+	BF L22
+	TB
+	CL 'TST '
+	CI
+	NL
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	TB
+	CL 'ID'
+	NL
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	TB
+	CL 'NUM'
+	NL
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	TB
+	CL 'SR'
+	NL
+L25
+	BT L21
+	TST '('
+	BF L26
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L26
+	BT L21
+	TST '.EMPTY'
+	BF L27
+	TB
+	CL 'SET'
+	NL
+L27
+	BT L21
+	TST '$'
+	BF L28
+	LB
+	CL 'L'
+	GN
+	NL
+	CLL EX3
+	BE
+	TB
+	CL 'BT L'
+	GN
+	NL
+	TB
+	CL 'SET'
+	NL
+L28
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L29
+L30
+	CLL OUT1
+	BT L30
+	SET
+	BE
+	TST '}'
+	BE
+L29
+L31
+	R
+OUT1
+	TST '*'
+	BF L32
+	TB
+	CL 'CI'
+	NL
+L32
+	BT L33
+	SR
+	BF L34
+	TB
+	CL 'CL '
+	CI
+	NL
+L34
+	BT L33
+	TST '#'
+	BF L35
+	TB
+	CL 'GN'
+	NL
+L35
+	BT L33
+	TST '\n'
+	BF L36
+	TB
+	CL 'NL'
+	NL
+L36
+	BT L33
+	TST '.LB'
+	BF L37
+	TB
+	CL 'LB'
+	NL
+L37
+	BT L33
+	TST '\t'
+	BF L38
+	TB
+	CL 'TB'
+	NL
+L38
+	BT L33
+	TST '.LM+'
+	BF L39
+	TB
+	CL 'LMI'
+	NL
+L39
+	BT L33
+	TST '.LM-'
+	BF L40
+	TB
+	CL 'LMD'
+	NL
+L40
+L33
+	R
+  END`;
+input_i["ia03. change .OUT() to {}"] = `.SYNTAX PROGRAM
+
+PROGRAM = '.SYNTAX' .ID {.LB .TB 'ADR ' * .NL}
+          $ ST
+          '.END' {.TB 'END' .NL};
+
+ST = .ID {.LB * .NL} '=' EX1 ';' {.TB 'R' .NL};
+
+EX1 = EX2 $('/' {.TB 'BT L'# .NL} EX2 )
+      {.LB 'L'# .NL};
+
+EX2 = (EX3 {.TB 'BF L'# .NL} / OUTPUT)
+      $(EX3 {.TB 'BE' .NL} / OUTPUT)
+      {.LB 'L'# .NL} ;
+
+EX3 = .ID       {.TB 'CLL '* .NL} /
+      .STRING   {.TB 'TST '* .NL} /
+      '.ID'     {.TB 'ID' .NL}    /
+      '.NUMBER' {.TB 'NUM' .NL}   /
+      '.STRING' {.TB 'SR' .NL}    /
+      '(' EX1 ')'                     /
+      '.EMPTY'  {.TB 'SET' .NL}  /
+      '$' {.LB 'L'# .NL} EX3 {.TB 'BT L'# .NL} {.TB 'SET' .NL} ;
+
+OUTPUT = '{'$OUT1 '}' ;
+
+OUT1 = '*'     {.TB 'CI' .NL}   /
+       .STRING {.TB 'CL '* .NL} /
+       '#'     {.TB 'GN' .NL}   /
+       '.NL'   {.TB 'NL' .NL}   /
+       '.LB'   {.TB 'LB' .NL}   /
+       '.TB'   {.TB 'TB' .NL}   /
+       '.LM+'  {.TB 'LMI' .NL}  /
+       '.LM-'  {.TB 'LMD' .NL}  ;
+
+.END`;
+
+code_c["ca03. use {} instead of .OUT()"] = `	ADR PROGRAM
+PROGRAM
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	LB
+	TB
+	CL 'ADR '
+	CI
+	NL
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	TB
+	CL 'END'
+	NL
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	NL
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	TB
+	CL 'R'
+	NL
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	TB
+	CL 'BT L'
+	GN
+	NL
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	TB
+	CL 'BF L'
+	GN
+	NL
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	TB
+	CL 'BE'
+	NL
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	TB
+	CL 'CLL '
+	CI
+	NL
+L20
+	BT L21
+	SR
+	BF L22
+	TB
+	CL 'TST '
+	CI
+	NL
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	TB
+	CL 'ID'
+	NL
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	TB
+	CL 'NUM'
+	NL
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	TB
+	CL 'SR'
+	NL
+L25
+	BT L21
+	TST '('
+	BF L26
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L26
+	BT L21
+	TST '.EMPTY'
+	BF L27
+	TB
+	CL 'SET'
+	NL
+L27
+	BT L21
+	TST '$'
+	BF L28
+	LB
+	CL 'L'
+	GN
+	NL
+	CLL EX3
+	BE
+	TB
+	CL 'BT L'
+	GN
+	NL
+	TB
+	CL 'SET'
+	NL
+L28
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L29
+L30
+	CLL OUT1
+	BT L30
+	SET
+	BE
+	TST '}'
+	BE
+L29
+L31
+	R
+OUT1
+	TST '*'
+	BF L32
+	TB
+	CL 'CI'
+	NL
+L32
+	BT L33
+	SR
+	BF L34
+	TB
+	CL 'CL '
+	CI
+	NL
+L34
+	BT L33
+	TST '#'
+	BF L35
+	TB
+	CL 'GN'
+	NL
+L35
+	BT L33
+	TST '.NL'
+	BF L36
+	TB
+	CL 'NL'
+	NL
+L36
+	BT L33
+	TST '.LB'
+	BF L37
+	TB
+	CL 'LB'
+	NL
+L37
+	BT L33
+	TST '.TB'
+	BF L38
+	TB
+	CL 'TB'
+	NL
+L38
+	BT L33
+	TST '.LM+'
+	BF L39
+	TB
+	CL 'LMI'
+	NL
+L39
+	BT L33
+	TST '.LM-'
+	BF L40
+	TB
+	CL 'LMD'
+	NL
+L40
+L33
+	R
+	END`;
+input_i["ia04. replace .NL and .TB with \n and \t"] = `.SYNTAX PROGRAM
+
+PROGRAM = '.SYNTAX' .ID {.LB \t 'ADR ' * \n}
+          $ ST
+          '.END' {\t 'END' \n};
+
+ST = .ID {.LB * \n} '=' EX1 ';' {\t 'R' \n};
+
+EX1 = EX2 $('/' {\t 'BT L'# \n} EX2 )
+      {.LB 'L'# \n};
+
+EX2 = (EX3 {\t 'BF L'# \n} / OUTPUT)
+      $(EX3 {\t 'BE' \n} / OUTPUT)
+      {.LB 'L'# \n} ;
+
+EX3 = .ID       {\t 'CLL '* \n} /
+      .STRING   {\t 'TST '* \n} /
+      '.ID'     {\t 'ID' \n}    /
+      '.NUMBER' {\t 'NUM' \n}   /
+      '.STRING' {\t 'SR' \n}    /
+      '(' EX1 ')'                /
+      '.EMPTY'  {\t 'SET' \n}   /
+      '$' {.LB 'L'# \n} EX3 {\t 'BT L'# \n} {\t 'SET' \n} ;
+
+OUTPUT = '{'$OUT1 '}' ;
+
+OUT1 = '*'     {\t 'CI' \n}   /
+       .STRING {\t 'CL '* \n} /
+       '#'     {\t 'GN' \n}   /
+       '\n'   {\t 'NL' \n}   /
+       '.LB'   {\t 'LB' \n}   /
+       '\t'   {\t 'TB' \n}   /
+       '.LM+'  {\t 'LMI' \n}  /
+       '.LM-'  {\t 'LMD' \n}  ;
+
+.END`;
+code_c["ca04. use \n and \t"] = `	ADR PROGRAM
+PROGRAM
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	LB
+	TB
+	CL 'ADR '
+	CI
+	NL
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	TB
+	CL 'END'
+	NL
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	NL
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	TB
+	CL 'R'
+	NL
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	TB
+	CL 'BT L'
+	GN
+	NL
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	TB
+	CL 'BF L'
+	GN
+	NL
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	TB
+	CL 'BE'
+	NL
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	NL
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	TB
+	CL 'CLL '
+	CI
+	NL
+L20
+	BT L21
+	SR
+	BF L22
+	TB
+	CL 'TST '
+	CI
+	NL
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	TB
+	CL 'ID'
+	NL
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	TB
+	CL 'NUM'
+	NL
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	TB
+	CL 'SR'
+	NL
+L25
+	BT L21
+	TST '('
+	BF L26
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L26
+	BT L21
+	TST '.EMPTY'
+	BF L27
+	TB
+	CL 'SET'
+	NL
+L27
+	BT L21
+	TST '$'
+	BF L28
+	LB
+	CL 'L'
+	GN
+	NL
+	CLL EX3
+	BE
+	TB
+	CL 'BT L'
+	GN
+	NL
+	TB
+	CL 'SET'
+	NL
+L28
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L29
+L30
+	CLL OUT1
+	BT L30
+	SET
+	BE
+	TST '}'
+	BE
+L29
+L31
+	R
+OUT1
+	TST '*'
+	BF L32
+	TB
+	CL 'CI'
+	NL
+L32
+	BT L33
+	SR
+	BF L34
+	TB
+	CL 'CL '
+	CI
+	NL
+L34
+	BT L33
+	TST '#'
+	BF L35
+	TB
+	CL 'GN'
+	NL
+L35
+	BT L33
+	TST '\n'
+	BF L36
+	TB
+	CL 'NL'
+	NL
+L36
+	BT L33
+	TST '.LB'
+	BF L37
+	TB
+	CL 'LB'
+	NL
+L37
+	BT L33
+	TST '\t'
+	BF L38
+	TB
+	CL 'TB'
+	NL
+L38
+	BT L33
+	TST '.LM+'
+	BF L39
+	TB
+	CL 'LMI'
+	NL
+L39
+	BT L33
+	TST '.LM-'
+	BF L40
+	TB
+	CL 'LMD'
+	NL
+L40
+L33
+	R
+	END`;

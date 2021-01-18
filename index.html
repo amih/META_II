@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script>var exports = {};</script>
-  <script type="text/javascript" src="index.js?20210111"></script>
-  <title>SQL2EOS</title>
+  <script type="text/javascript" src="index.js?zfkesKdsC0mMXDew"></script>
+  <title>META_II SQL2EOS</title>
   <style>
     #ik, #ck, #ok {
       width: 30%;
@@ -21,7 +21,7 @@
     #editors { height: 100%; }
     textarea {
       width: 30%;
-      height: 400px;
+      height: 700px;
     }
     #ce.identical, #oe.identical{
       background-color: aqua;
@@ -50,6 +50,7 @@
     };
     const compile = () => {
       $('#ok').text('');
+      if($('#ie').val().trim().length==0 || $('#ce').val().trim().length==0){ return; }
       let res = META_II( $('#ie').val(), $('#ce').val() );
       $('#oe').val(res.replace(/(^\n|\n$)/,''));
       if( $('#ce').val() == $('#oe').val() && $('#ce').val().length > 0 ){

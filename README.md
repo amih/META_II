@@ -4,6 +4,11 @@ I want to modify it to my needs, make it more approachable to others too.
 https://developer.okta.com/blog/2019/06/18/command-line-app-with-nodejs
 https://blog.developer.atlassian.com/scripting-with-node/
 
+cd to the proect, then run this command and navigate to http://localhost:8080
+
+    http-server
+
+
 // run:
 // 
 //     node .
