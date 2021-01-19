@@ -1,6 +1,4 @@
-let vm = (() => { return {
-  // programCounter: 0, programCode: '', inputPointer: 0, inbuf: '', outbuf: '', margin: 0, exitlevel: 0, flag: false, symbolarg: '',
-  // gnlabel: '', token: '', outstr: '', tokenflag: false, stackframe: [], stackframesize: 4, opCounter: 0,// stackframe (0=gn1, 1=programCounter, 2=rule, 3=lm)
+let vm = {
   findlabel: (s) => {
     vm.programCounter = vm.programCode.indexOf('\n'+s+'\n');
     if(vm.programCounter >= 0){
@@ -31,7 +29,7 @@ let vm = (() => { return {
     }
   },
   NUM: () => {
-    var result = vm.inbuf.substr(vm.inputPointer).match(/^[ \t\n]*(?<arg>[0-9]+)/); // NB: [0-9]+ (the plus instead of asterisk) meaning, at least one digit!
+    var result = vm.inbuf.substr(vm.inputPointer).match(/^[ \t\n]*(?<arg>[0-9]+)/);
     vm.flag = !!result;
     if(vm.flag){
       vm.token = result.groups.arg;
@@ -124,38 +122,33 @@ let vm = (() => { return {
     }
     vm.out(vm.stack[vm.stackframe * vm.stackframesize + 0]);
   },
-  LMI: ()  => { vm.margin += 2; }, // increase left margin (extended only)
-  LMD: ()  => { vm.margin -= 2; }, // decrease left margin (extended only)
-  CE:  (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) == parseInt(s, 10)); }, // compare input char to code for equal
-  CGE: (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) >= parseInt(s, 10)); }, // compare input char to code for greater or equal
-  CLE: (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) <= parseInt(s, 10)); }, // compare input char to code for less or equal
-  LCH: ()  => { vm.token = vm.inbuf.charCodeAt(vm.inputPointer); vm.inputPointer++; }, // literal char code to token buffer (extended only)
-  NOT: ()  => { vm.flag = !vm.flag; }, // invert parse flag
-  TFT: ()  => { vm.tokenflag = true; vm.token = ''; }, // set token flag true and clear token
-  TFF: ()  => { vm.tokenflag = false; }, // set token flag false
-  SCN: ()  => { // if flag, scan input character; if token flag, add to token (extended only)
-    if(vm.flag) { // if taking token, add to token
+  LMI: ()  => { vm.margin += 2; },
+  LMD: ()  => { vm.margin -= 2; },
+  CE:  (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) == parseInt(s, 10)); },
+  CGE: (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) >= parseInt(s, 10)); },
+  CLE: (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) <= parseInt(s, 10)); },
+  LCH: ()  => { vm.token = vm.inbuf.charCodeAt(vm.inputPointer); vm.inputPointer++; },
+  NOT: ()  => { vm.flag = !vm.flag; },
+  TFT: ()  => { vm.tokenflag = true; vm.token = ''; },
+  TFF: ()  => { vm.tokenflag = false; },
+  SCN: ()  => {
+    if(vm.flag) {
       if(vm.tokenflag){
         vm.token += vm.inbuf.charAt(vm.inputPointer);
       }
-      vm.inputPointer++; // scan the character
+      vm.inputPointer++;
     }
   },
   CC: (s) => { vm.outstr += String.fromCharCode(s); }, // copy char code to output
-  argstring:() => {
-    var result = vm.programCode.substr(vm.programCounter).match(/^[^']*'(?<argument>[^']*)/);
-    vm.symbolarg = result.groups.argument;
-    vm.programCounter += result[0].length;
-  },
-  argsymbol:() => {
-    var result = vm.programCode.substr(vm.programCounter).match(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/);
+  argsymbol:(regex) => {
+    var result = vm.programCode.substr(vm.programCounter).match(regex);
     vm.symbolarg = result.groups.argument;
     vm.programCounter += result[0].length;
   },
   InterpretOp() {
     let op = /[A-Za-z0-9_]*/.exec(vm.programCode.substr(vm.programCounter))[0];
-    if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ vm.argsymbol(); vm[op](vm.symbolarg); return; }
-    if(/\b(CL|TST)\b/.test(op)){ vm.argstring(); vm[op](vm.symbolarg); return; }
+    if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); vm[op](vm.symbolarg); return; }
+    if(/\b(CL|TST)\b/.test(op)){ vm.argsymbol(/^[^']*'(?<argument>[^']*)/); vm[op](vm.symbolarg); return; }
     if(/\bRF\b/.test(op)){ if(!vm.flag){ vm['R'](); } return; }
     if(/\bPFF\b/.test(op)){ vm.flag = false; return; }
     if(/\bPFT\b/.test(op)){ vm.flag = true; return; }
@@ -164,20 +157,16 @@ let vm = (() => { return {
   },
   META_II: (input, code) => {
     [ vm.stack, vm.inbuf, vm.programCode, vm.outbuf ] = [ new Array(600), input, code, '' ];
-    [ vm.outstr, vm.programCounter, vm.exitlevel, vm.opCounter ] = [ '\t', 0, false, 0 ];
-    vm.flag = false;
-    vm.tokenflag  =false;
-    vm.symbolarg = '';
-    vm.token = '';
-    vm.stackframesize = 4;
-    vm.opCounter = 0;
+    [ vm.outstr, vm.programCounter, vm.exitlevel ] = [ '\t', 0, false ];
+    [ vm.flag, vm.tokenflag, vm.symbolarg, vm.token, vm.stackframesize ] = [ false, false, '', '', 4 ];
+    opCounterPreventInfiniteLoop = 0;
     while (true) {
-      if(vm.opCounter>56000){ console.log('too many commands?'+vm.opCounter); return vm.outbuf;}
+      if(opCounterPreventInfiniteLoop>300000){ console.log('too many commands?'); return vm.outbuf;}
       vm.programCounter += /^[^\t]*/.exec(vm.programCode.substr(vm.programCounter))[0].length + 1;
       vm.InterpretOp();
-      vm.opCounter++;
-      if(vm.exitlevel){ console.log('programCounter:'+vm.opCounter); return vm.outbuf; }
+      opCounterPreventInfiniteLoop++;
+      if(vm.exitlevel){ return vm.outbuf; }
     }
   },
-}})();
+};
 exports.vm = vm;
