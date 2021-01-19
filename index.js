@@ -20,28 +20,12 @@ let vm = {
       vm.inputPointer += result[0].length;
     }
   },
-  ID: () => {
-    var result = vm.inbuf.substr(vm.inputPointer).match(/^[ \t\n]*(?<arg>[a-zA-Z][a-zA-Z0-9]*)/);
+  ID_NUM_SR: (regex, quote) => {
+    var result = vm.inbuf.substr(vm.inputPointer).match(regex);
     vm.flag = !!result;
     if(vm.flag){
-      vm.token = result.groups.arg;
-      vm.inputPointer += result[0].length;
-    }
-  },
-  NUM: () => {
-    var result = vm.inbuf.substr(vm.inputPointer).match(/^[ \t\n]*(?<arg>[0-9]+)/);
-    vm.flag = !!result;
-    if(vm.flag){
-      vm.token = result.groups.arg;
-      vm.inputPointer += result[0].length;
-    }
-  },
-  SR: () => {
-    var result = vm.inbuf.substr(vm.inputPointer).match(/^[ \t\n]*\'(?<arg>[^\']*)/);
-    vm.flag = !!result;
-    if(vm.flag){
-      vm.token = "'" + result.groups.arg + "'";
-      vm.inputPointer += result[0].length + 1;
+      vm.token = quote + result.groups.arg + quote;
+      vm.inputPointer += result[0].length + quote.length;
     }
   },
   ADR: () => {
@@ -152,6 +136,11 @@ let vm = {
     if(/\bRF\b/.test(op)){ if(!vm.flag){ vm['R'](); } return; }
     if(/\bPFF\b/.test(op)){ vm.flag = false; return; }
     if(/\bPFT\b/.test(op)){ vm.flag = true; return; }
+    switch (op) {
+      case 'ID' : vm.ID_NUM_SR(/^[ \t\n]*(?<arg>[a-zA-Z][a-zA-Z0-9]*)/, ''); return;
+      case 'NUM': vm.ID_NUM_SR(/^[ \t\n]*(?<arg>[0-9]+)/, '')              ; return;
+      case 'SR' : vm.ID_NUM_SR(/^[ \t\n]*\'(?<arg>[^\']*)/, "'")           ; return;
+    }
     if(!vm[op]){ console.log('ERROR: unknown interpret op \''+op+'\''); vm.exitlevel = true; return; }
     vm[op]();
   },
