@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script>var exports = {};</script>
-  <script type="text/javascript" src="index.js?zfkesKdsC0mMXDew"></script>
+  <script type="text/javascript" src="index.js?20210119edbsdddrdsse"></script>
+  <script type="text/javascript" src="examples.js"></script>
   <title>META_II SQL2EOS</title>
   <style>
     #ik, #ck, #ok {
@@ -26,11 +27,24 @@
     #ce.identical, #oe.identical{
       background-color: aqua;
     }
+    #explainer{
+      width: 60%;
+      display: inline-block;
+    }
+    #out2code{
+      width: 30px;
+      display: inline-block;
+      font-size: 45px;
+      padding: 3px;
+    }
   </style>
 </head>
 <body>
-  Open dev-tools --> console and try:<br><br>
-  META_II(input_i["i01. demo, AEXP example assignments"], code_c["c01. demo, AEXP assignments compiler c[i02,c02] "])<br><br>
+  <div id="explainer">
+    The whole META_II interpreter is in one js file, open dev-tools --> console and try:<br><br>
+    META_II(input_i["i01. demo, AEXP example assignments"], code_c["c01. demo, AEXP assignments compiler c[i02,c02] "])
+  </div>
+  <div id="out2code">&#x293A;</div>
   <div id="keys">
     <div id="ik"></div>
     <div id="ck"></div>
@@ -51,9 +65,25 @@
     const compile = () => {
       $('#ok').text('');
       if($('#ie').val().trim().length==0 || $('#ce').val().trim().length==0){ return; }
-      let res = META_II( $('#ie').val(), $('#ce').val() );
-      $('#oe').val(res.replace(/(^\n|\n$)/,''));
-      if( $('#ce').val() == $('#oe').val() && $('#ce').val().length > 0 ){
+      // eval js or run the interpreter?
+      if($('#ce').val().charAt(0)!=='\t'){
+        eval($('#ce').val());
+        switch (typeof(compiler)) {
+          case 'function':
+            compiler( $('#ie').val() );
+            $('#oe').val(outbuf);
+          break;
+          case 'object':
+            compiler.compile( $('#ie').val() );
+            $('#oe').val(compiler.outbuf);
+          break;
+          default: window.alert('ERROR: code as javascript does not define compiler');
+        };
+      }else{
+        let res = vm.META_II( $('#ie').val(), $('#ce').val() );
+        $('#oe').val(res.replace(/(^\n|\n$)/,''));
+      }
+      if( $('#ce').val().trim() == $('#oe').val().trim() && $('#ce').val().length > 0 ){
         $('#ce, #oe').addClass('identical');
       }else{
         $('#ce, #oe').removeClass('identical');
@@ -70,6 +100,12 @@
     $('#ck').append(Object.keys(code_c ).map( e => '<li>' + e + '</li>').join(''));
     $('#ik li').click(e => { update('#i', e.target, input_i[$(e.target).text()]); });
     $('#ck li').click(e => { update('#c', e.target, code_c [$(e.target).text()]); });
+    $('#out2code').click(() => {
+      $('#ck li').removeClass('selected');
+      $('#ce').val( $('#oe').val() );
+      $('#oe').val('');
+      compile();
+    });
     $('#ie, #ce').keyup( e => {
       if(!!timeoutID){ clearTimeout(timeoutID); }
       timeoutID = setTimeout(compile, 3*1000)
