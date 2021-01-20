@@ -1,10 +1,10 @@
 let vm = {
   findlabel: (s) => {
-    vm.programCounter = vm.programCode.indexOf('\n'+s+'\n');
+    vm.programCounter = vm.programCode.indexOf('\n' + s + '\n');
     if(vm.programCounter >= 0){
       vm.programCounter += s.length + 1;
     }else{
-      console.log('label '+s+' not found!\n');
+      console.log('label ' + s + ' not found!');
       vm.exitlevel = true;
     }
   },
@@ -28,18 +28,10 @@ let vm = {
       vm.inputPointer += result[0].length + quote.length;
     }
   },
-  ADR: () => {
-    [ vm.gnlabel, vm.inputPointer, vm.margin, vm.stackframe ] = [ 1, 0, 0, 0 ];
+  CLL: (arg, isADR = false) => {
+    if(isADR){ [ vm.gnlabel, vm.inputPointer, vm.margin, vm.stackframe ] = [ 1, 0, 0, 0 ]; }else{ vm.stackframe++; }
     vm.stack[vm.stackframe * vm.stackframesize + 0] = 0;         // GN1  also GN (extended only)
-    vm.stack[vm.stackframe * vm.stackframesize + 1] = -1;        // return programCounter value
-    vm.stack[vm.stackframe * vm.stackframesize + 2] = vm.symbolarg; // rule name called for error messages
-    vm.stack[vm.stackframe * vm.stackframesize + 3] = vm.margin;    // left margin (extended only)
-    vm.findlabel(vm.symbolarg);
-  },
-  CLL: () => {
-    vm.stackframe++; // push and initialize a new stackframe
-    vm.stack[vm.stackframe * vm.stackframesize + 0] = 0;         // GN1  also GN (extended only)
-    vm.stack[vm.stackframe * vm.stackframesize + 1] = vm.programCounter;// return programCounter value
+    vm.stack[vm.stackframe * vm.stackframesize + 1] = isADR ? -1 : vm.programCounter;// return programCounter value
     vm.stack[vm.stackframe * vm.stackframesize + 2] = vm.symbolarg; // rule name called for error messages
     vm.stack[vm.stackframe * vm.stackframesize + 3] = vm.margin;    // left margin (needed on backtrack)
     vm.findlabel(vm.symbolarg);
@@ -49,41 +41,21 @@ let vm = {
     if(!vm.flag){ console.log('first rule "'+ vm.stack[vm.stackframe * vm.stackframesize + 3] + '" failed'); }
   },
   R: () => {
-    if(vm.stackframe == 0){
-      vm.END();
-      return;
-    };
-    vm.programCounter = vm.stack[vm.stackframe * vm.stackframesize + 1]; // return programCounter
+    if(vm.stackframe == 0){ vm.END(); return; };
+    vm.programCounter = vm.stack[vm.stackframe * vm.stackframesize + 1];
     vm.margin = vm.stack[vm.stackframe * vm.stackframesize + 3];
-    vm.stackframe--;                                // pop stackframe
+    vm.stackframe--;
   },
   SET: () => { vm.flag = true; },
   B:   () => { vm.findlabel(vm.symbolarg); },
   BT:  () => { if( vm.flag) vm.findlabel(vm.symbolarg); },
   BF:  () => { if(!vm.flag) vm.findlabel(vm.symbolarg); },
   BE:  () => {
-    var i; var j; var h;
-    var msg; var ctx;
     if(vm.flag) return; // only halt if there is an error
-    msg = 'SYNTAX ERROR:\n' +
-          'rule:' + vm.stack[vm.stackframe * vm.stackframesize + 3] + '\n' +
-          'last token:' + vm.token + '\n' +
-          'out string:' + vm.outstr + '\n' +
-          'INPUT:' + '\n'; 
-    // provide scan context
-    i = vm.inputPointer - 20;  if(i < 0) i = 0;
-    j = vm.inputPointer + 20;  if(j > vm.inbuf.length) j = vm.inbuf.length;
-    ctx = vm.inbuf.substring(i,vm.inputPointer) + '<scan>' + vm.inbuf.substring(vm.inputPointer,j);
-    msg += ctx + '\n\n' + 'CHAR CODES:\n';
-    // ensure all character codes are visible
-    for (var h = 0; h < ctx.length; h++){
-      if(ctx.charCodeAt(h) <= 32){
-        msg += '<' + ctx.charCodeAt(h) + '>';
-      }else{
-        msg += ctx.charAt(h);
-      }
-    }
-    console.log(msg + '\n');
+    const i = Math.max(0, vm.inputPointer - 20);
+    const j = Math.min(vm.inbuf.length, vm.inputPointer + 20);
+    console.log('SYNTAX ERROR:\nrule:' + vm.stack[vm.stackframe * vm.stackframesize + 3] + '\nlast token:' + vm.token + '\n' +
+    'out string:' + vm.outstr + '\nINPUT:' + '\n' + vm.inbuf.substring(i,vm.inputPointer) + '<scan>' + vm.inbuf.substring(vm.inputPointer,j));
     vm.exitlevel = true;
   },
   CL:  (s) => { vm.out(s); },
@@ -131,7 +103,8 @@ let vm = {
   },
   InterpretOp() {
     let op = /[A-Za-z0-9_]*/.exec(vm.programCode.substr(vm.programCounter))[0];
-    if(/\b(ADR|B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); vm[op](vm.symbolarg); return; }
+    if(/\bADR\b/.test(op)){ vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); vm.CLL(vm.symbolarg, true); return; }
+    if(/\b(B|BT|BF|CLL|CE|CGE|CLE|CC)\b/.test(op)){ vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); vm[op](vm.symbolarg); return; }
     if(/\b(CL|TST)\b/.test(op)){ vm.argsymbol(/^[^']*'(?<argument>[^']*)/); vm[op](vm.symbolarg); return; }
     if(/\bRF\b/.test(op)){ if(!vm.flag){ vm['R'](); } return; }
     if(/\bPFF\b/.test(op)){ vm.flag = false; return; }
