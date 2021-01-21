@@ -67,10 +67,6 @@ let vm = {
     }
     vm.out('L' + vm.stack[vm.stackframe * vm.stackframesize + 0]);
   },
-  LB:  () => { vm.outstr = ''; },
-  OUT: () => { vm.outbuf += vm.outstr + '\n'; vm.outstr = '\t'; },
-  NL:  () => { vm.outbuf += vm.outstr + '\n'; vm.outstr = ''  ; },
-  TB:  () => { vm.out('\t'); }, // add a tab to the output
   GN:  () => { // generate unique number (extended only, compare with vm-GN1)
     if(vm.stack[vm.stackframe * vm.stackframesize + 0] == 0){
       vm.stack[vm.stackframe * vm.stackframesize + 0] = vm.gnlabel;
@@ -78,6 +74,10 @@ let vm = {
     }
     vm.out(vm.stack[vm.stackframe * vm.stackframesize + 0]);
   },
+  LB:  () => { vm.outstr = ''; },
+  OUT: () => { vm.outbuf += vm.outstr + '\n'; vm.outstr = '\t'; },
+  NL:  () => { vm.outbuf += vm.outstr + '\n'; vm.outstr = ''  ; },
+  TB:  () => { vm.out('\t'); }, // add a tab to the output
   LMI: ()  => { vm.margin += 2; },
   LMD: ()  => { vm.margin -= 2; },
   CE:  (s) => { vm.flag = (vm.inbuf.charCodeAt(vm.inputPointer) == parseInt(s, 10)); },
@@ -95,7 +95,7 @@ let vm = {
       vm.inputPointer++;
     }
   },
-  CC: (s) => { vm.outstr += String.fromCharCode(s); }, // copy char code to output
+  CC: (s) => { vm.outstr += String.fromCharCode(s); }, // copy char code to output, expect s to be a number in string.
   argsymbol:(regex) => {
     var result = vm.programCode.substr(vm.programCounter).match(regex);
     vm.symbolarg = result.groups.argument;
