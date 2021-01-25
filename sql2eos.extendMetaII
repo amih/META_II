@@ -1,0 +1,300 @@
+/////////////////////////////////////////////////////////
+// Seems like a good direction!! Need to extend the interpreter to process the new pseudo OP codes for:
+// STORENAME and LOADNAME
+// STORENAME should take the last identified literal and store it in a new created variable.
+// LOADNAME should copy the variable value to the out buffer.
+// next steps: create similar extension for an array of unknown number of values, (for field list, both names and data-types)
+// need op codes to store new values in named stack,
+// loop over and output all values in coordination for the 2 arrays, field-names and data-types.
+//
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// .ID .NAME TheTableName --> scan an ID, then store it in the interpreter as a new variable named 'TheTableName'
+/////////////////////
+.SYNTAX SQL2EOS
+SQL2EOS = 'CREATE' 'TABLE'
+          .ID .STORENAME TheTableName {
+          'generate cpp template code with table name::' *N TheTableName
+};
+.END
+/////////////////////
+	ADR SQL2EOS
+SQL2EOS
+	TST 'CREATE'
+	BF L1
+	TST 'TABLE'
+	BE
+	ID
+	BE
+	STORENAME TheTableName
+	BE
+	CL 'generate cpp template code with table name::'
+	LOADNAME TheTableName
+	OUT
+L1
+L2
+	R
+	END
+/////////////////////
+// added .NAME to EX3
+/////////////////////
+
+.SYNTAX METAII
+METAII = '.SYNTAX' .ID {'ADR ' *}
+          $ ST
+          '.END' {'END'};
+ST = .ID .LABEL * '=' EX1 ';' {'R'};
+EX1 = EX2 $('/' {'BT ' *1} EX2 )
+      .LABEL *1 ;
+EX2 = (EX3 {'BF ' *1} / OUTPUT)
+      $(EX3 {'BE'} / OUTPUT)
+      .LABEL *1 ;
+EX3 = .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '.STORENAME' .ID {'STORENAME '*}    /
+      '(' EX1 ')'         /
+      '.EMPTY'  {'SET'}   /
+      '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
+OUTPUT = ('{' $OUT1 '}' /
+          '.LABEL' {'LB'} OUT1)
+         {'OUT'};
+OUT1 = '*1'    {'GN1'}  /
+       '*2'    {'GN2'}  /
+       '*N' .ID {'LOADNAME '*}/
+       '*'     {'CI'}   /
+       .STRING {'CL '*} ;
+.END
+
+//////////////////////////
+	ADR METAII
+METAII
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	CL 'ADR '
+	CI
+	OUT
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	CL 'END'
+	OUT
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	OUT
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	CL 'R'
+	OUT
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	CL 'BT '
+	GN1
+	OUT
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	CL 'BF '
+	GN1
+	OUT
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	CL 'BE'
+	OUT
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	CL 'CLL '
+	CI
+	OUT
+L20
+	BT L21
+	SR
+	BF L22
+	CL 'TST '
+	CI
+	OUT
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	CL 'ID'
+	OUT
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	CL 'NUM'
+	OUT
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	CL 'SR'
+	OUT
+L25
+	BT L21
+	TST '.STORENAME'
+	BF L26
+	ID
+	BE
+	CL 'STORENAME '
+	CI
+	OUT
+L26
+	BT L21
+	TST '('
+	BF L27
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L27
+	BT L21
+	TST '.EMPTY'
+	BF L28
+	CL 'SET'
+	OUT
+L28
+	BT L21
+	TST '$'
+	BF L29
+	LB
+	GN1
+	OUT
+	CLL EX3
+	BE
+	CL 'BT '
+	GN1
+	OUT
+	CL 'SET'
+	OUT
+L29
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L30
+L31
+	CLL OUT1
+	BT L31
+	SET
+	BE
+	TST '}'
+	BE
+L30
+	BT L32
+	TST '.LABEL'
+	BF L33
+	CL 'LB'
+	OUT
+	CLL OUT1
+	BE
+L33
+L32
+	BF L34
+	CL 'OUT'
+	OUT
+L34
+L35
+	R
+OUT1
+	TST '*1'
+	BF L36
+	CL 'GN1'
+	OUT
+L36
+	BT L37
+	TST '*2'
+	BF L38
+	CL 'GN2'
+	OUT
+L38
+	BT L37
+	TST '*N'
+	BF L39
+	ID
+	BE
+	CL 'LOADNAME '
+	CI
+	OUT
+L39
+	BT L37
+	TST '*'
+	BF L40
+	CL 'CI'
+	OUT
+L40
+	BT L37
+	SR
+	BF L41
+	CL 'CL '
+	CI
+	OUT
+L41
+L37
+	R
+	END
