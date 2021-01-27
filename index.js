@@ -96,6 +96,14 @@ let vm = {
     }
   },
   CC: (s) => { vm.outstr += String.fromCharCode(s); }, // copy char code to output, expect s to be a number in string.
+  STORENAME: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/);
+    vm.namedVariables[vm.symbolarg] = vm.token;
+  },
+  LOADNAME: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/);
+    vm.out(vm.namedVariables[vm.symbolarg]);
+  },
   argsymbol:(regex) => {
     var result = vm.programCode.substr(vm.programCounter).match(regex);
     vm.symbolarg = result.groups.argument;
@@ -118,6 +126,7 @@ let vm = {
     vm[op]();
   },
   META_II: (input, code) => {
+    vm.namedVariables = {};
     [ vm.stack, vm.inbuf, vm.programCode, vm.outbuf ] = [ new Array(600), input, code, '' ];
     [ vm.outstr, vm.programCounter, vm.exitlevel ] = [ '\t', 0, false ];
     [ vm.flag, vm.tokenflag, vm.symbolarg, vm.token, vm.stackframesize ] = [ false, false, '', '', 4 ];
