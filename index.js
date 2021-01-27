@@ -97,11 +97,21 @@ let vm = {
   },
   CC: (s) => { vm.outstr += String.fromCharCode(s); }, // copy char code to output, expect s to be a number in string.
   STORENAME: () => {
-    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/);
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.namedVariables[vm.symbolarg] = vm.token;
   },
   LOADNAME: () => {
-    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/);
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.out(vm.namedVariables[vm.symbolarg]);
+  },
+  STORENAMEARR: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    if(!vm.namedVariables[vm.symbolarg]){ vm.namedVariables[vm.symbolarg] = { arr: [], idx: -1 }; } // idx will be used in output loops to track where we are.
+    vm.namedVariables[vm.symbolarg].arr.push(vm.token);
+    console.log('vm.namedVariables: ', vm.namedVariables);
+  },
+  LOADNAMEARR: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.out(vm.namedVariables[vm.symbolarg]);
   },
   argsymbol:(regex) => {

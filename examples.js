@@ -14499,3 +14499,528 @@ T115
 T118
 	R
 	END`;
+
+input_i['ia06. replaced .OUT with {} & add STORE AND LOAD variable by name'] = `.SYNTAX METAII
+METAII = '.SYNTAX' .ID {'ADR ' *}
+          $ ST
+          '.END' {'END'};
+ST = .ID .LABEL * '=' EX1 ';' {'R'};
+EX1 = EX2 $('/' {'BT ' *1} EX2 )
+      .LABEL *1 ;
+EX2 = (EX3 {'BF ' *1} / OUTPUT)
+      $(EX3 {'BE'} / OUTPUT)
+      .LABEL *1 ;
+EX3 = .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '.STORENAMEARR' .ID {'STORENAMEARR '*}    /
+      '.STORENAME' .ID {'STORENAME '*}    /
+      '(' EX1 ')'             /
+      '.EMPTY'  {'SET'}   /
+      '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
+OUTPUT = ('{'$OUT1 '}' /
+          '.LABEL' {'LB'} OUT1)
+         {'OUT'};
+OUT1 = '*1'    {'GN1'}  /
+       '*2'    {'GN2'}  /
+       '*N' .ID {'LOADNAME '*}/
+       '*'     {'CI'}   /
+       .STRING {'CL '*} ;
+.END`;
+code_c["ca04 with {} instead of .OUT()"] = `	ADR METAII
+METAII
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	CL 'ADR '
+	CI
+	OUT
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	CL 'END'
+	OUT
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	OUT
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	CL 'R'
+	OUT
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	CL 'BT '
+	GN1
+	OUT
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	CL 'BF '
+	GN1
+	OUT
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	CL 'BE'
+	OUT
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	CL 'CLL '
+	CI
+	OUT
+L20
+	BT L21
+	SR
+	BF L22
+	CL 'TST '
+	CI
+	OUT
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	CL 'ID'
+	OUT
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	CL 'NUM'
+	OUT
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	CL 'SR'
+	OUT
+L25
+	BT L21
+	TST '.STORENAMEARR'
+	BF L26
+	ID
+	BE
+	CL 'STORENAMEARR '
+	CI
+	OUT
+L26
+	BT L21
+	TST '.STORENAME'
+	BF L27
+	ID
+	BE
+	CL 'STORENAME '
+	CI
+	OUT
+L27
+	BT L21
+	TST '('
+	BF L28
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L28
+	BT L21
+	TST '.EMPTY'
+	BF L29
+	CL 'SET'
+	OUT
+L29
+	BT L21
+	TST '$'
+	BF L30
+	LB
+	GN1
+	OUT
+	CLL EX3
+	BE
+	CL 'BT '
+	GN1
+	OUT
+	CL 'SET'
+	OUT
+L30
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L31
+L32
+	CLL OUT1
+	BT L32
+	SET
+	BE
+	TST '}'
+	BE
+L31
+	BT L33
+	TST '.LABEL'
+	BF L34
+	CL 'LB'
+	OUT
+	CLL OUT1
+	BE
+L34
+L33
+	BF L35
+	CL 'OUT'
+	OUT
+L35
+L36
+	R
+OUT1
+	TST '*1'
+	BF L37
+	CL 'GN1'
+	OUT
+L37
+	BT L38
+	TST '*2'
+	BF L39
+	CL 'GN2'
+	OUT
+L39
+	BT L38
+	TST '*N'
+	BF L40
+	ID
+	BE
+	CL 'LOADNAME '
+	CI
+	OUT
+L40
+	BT L38
+	TST '*'
+	BF L41
+	CL 'CI'
+	OUT
+L41
+	BT L38
+	SR
+	BF L42
+	CL 'CL '
+	CI
+	OUT
+L42
+L38
+	R
+	END`;
+input_i["ia07. compile SQL to EOSIO"] = `.SYNTAX SQL2EOS
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '('
+  $FIELD
+')'
+  OUTTEMPLATE;
+FIELD = FIELDNAME FIELDTYPE ',';
+FIELDNAME = .ID .STORENAMEARR fieldName;
+FIELDTYPE = .ID .STORENAMEARR fieldType;
+OUTTEMPLATE = 
+{ '#include <eosio/eosio.hpp>' }
+{ 'using namespace eosio;' }
+{ 'class [[eosio::contract("' *N TheTableName '")]] '
+  *N TheTableName ' : public eosio::contract {' }
+{ '  public:' }
+{ '  private:' }
+{     'struct [[eosio::table]] rowstruct {' }
+*NARR fieldName { *N fielName *N fieldType ';' }
+{     '  uint64_t primary_key() const { return key.value; }' }
+{     '};' }
+{     'using address_index = eosio::multi_index<"people"_n, rowstruct>;' }
+{ '};' };
+
+.END`;
+
+
+
+input_i["ia07. CREATE TABLE"] = `CREATE TABLE customers (
+  accountname name,
+  id int,
+  firstname string,
+  yearofbirth int,
+)`;
+code_c["ca05 added STORE AND LOAD VARIABLES"] = `	ADR METAII
+METAII
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	CL 'ADR '
+	CI
+	OUT
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	CL 'END'
+	OUT
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	OUT
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	CL 'R'
+	OUT
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	CL 'BT '
+	GN1
+	OUT
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	CL 'BF '
+	GN1
+	OUT
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	CL 'BE'
+	OUT
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	GN1
+	OUT
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	CL 'CLL '
+	CI
+	OUT
+L20
+	BT L21
+	SR
+	BF L22
+	CL 'TST '
+	CI
+	OUT
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	CL 'ID'
+	OUT
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	CL 'NUM'
+	OUT
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	CL 'SR'
+	OUT
+L25
+	BT L21
+	TST '.STORENAME'
+	BF L26
+	ID
+	BE
+	CL 'STORENAME '
+	CI
+	OUT
+L26
+	BT L21
+	TST '('
+	BF L27
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L27
+	BT L21
+	TST '.EMPTY'
+	BF L28
+	CL 'SET'
+	OUT
+L28
+	BT L21
+	TST '$'
+	BF L29
+	LB
+	GN1
+	OUT
+	CLL EX3
+	BE
+	CL 'BT '
+	GN1
+	OUT
+	CL 'SET'
+	OUT
+L29
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L30
+L31
+	CLL OUT1
+	BT L31
+	SET
+	BE
+	TST '}'
+	BE
+L30
+	BT L32
+	TST '.LABEL'
+	BF L33
+	CL 'LB'
+	OUT
+	CLL OUT1
+	BE
+L33
+L32
+	BF L34
+	CL 'OUT'
+	OUT
+L34
+L35
+	R
+OUT1
+	TST '*1'
+	BF L36
+	CL 'GN1'
+	OUT
+L36
+	BT L37
+	TST '*2'
+	BF L38
+	CL 'GN2'
+	OUT
+L38
+	BT L37
+	TST '*N'
+	BF L39
+	ID
+	BE
+	CL 'LOADNAME '
+	CI
+	OUT
+L39
+	BT L37
+	TST '*'
+	BF L40
+	CL 'CI'
+	OUT
+L40
+	BT L37
+	SR
+	BF L41
+	CL 'CL '
+	CI
+	OUT
+L41
+L37
+	R
+	END`;
