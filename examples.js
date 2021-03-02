@@ -14529,6 +14529,38 @@ OUT1 = '*1'    {'GN1'}  /
        '*'     {'CI'}   /
        .STRING {'CL '*} ;
 .END`;
+input_i['ia06withLoops. replaced .OUT with {} & add STORE AND LOAD variable by name'] = `.SYNTAX METAII
+METAII = '.SYNTAX' .ID {'ADR ' *}
+          $ ST
+          '.END' {'END'};
+ST = .ID .LABEL * '=' EX1 ';' {'R'};
+EX1 = EX2 $('/' {'BT ' *1} EX2 )
+      .LABEL *1 ;
+EX2 = (EX3 {'BF ' *1} / OUTPUT)
+      $(EX3 {'BE'} / OUTPUT)
+      .LABEL *1 ;
+EX3 = 'loop(' .ID .STORENAME theArrayName
+          ',' .ID .STORENAME curName
+          ',' .ID .STORENAME idxName '['{'LOADNAME ' *N theArrayName} .LABEL *1 EX1 {'BT ' *1} {'SET'} ']' ')' /
+      .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '.STORENAMEARR' .ID {'STORENAMEARR '*}    /
+      '.STORENAME' .ID {'STORENAME '*}    /
+      '(' EX1 ')'             /
+      '.EMPTY'  {'SET'}   /
+      '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
+OUTPUT = ('{'$OUT1 '}' /
+          '.LABEL' {'LB'} OUT1)
+         {'OUT'};
+OUT1 = '*1'    {'GN1'}  /
+       '*2'    {'GN2'}  /
+       '*N' .ID {'LOADNAME '*}/
+       '*'     {'CI'}   /
+       .STRING {'CL '*} ;
+.END`;
 code_c["ca04 with {} instead of .OUT()"] = `	ADR METAII
 METAII
 	TST '.SYNTAX'
@@ -14781,6 +14813,30 @@ OUTTEMPLATE =
 { '  public:' }
 { '  private:' }
 {     'struct [[eosio::table]] rowstruct {' }
+
+{     '  uint64_t primary_key() const { return key.value; }' }
+{     '};' }
+{     'using address_index = eosio::multi_index<"people"_n, rowstruct>;' }
+{ '};' };
+
+.END`;
+  
+  input_i["ia07error. compile SQL to EOSIO"] = `.SYNTAX SQL2EOS
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '('
+  $FIELD
+')'
+  OUTTEMPLATE;
+FIELD = FIELDNAME FIELDTYPE ',';
+FIELDNAME = .ID .STORENAMEARR fieldName;
+FIELDTYPE = .ID .STORENAMEARR fieldType;
+OUTTEMPLATE = 
+{ '#include <eosio/eosio.hpp>' }
+{ 'using namespace eosio;' }
+{ 'class [[eosio::contract("' *N TheTableName '")]] '
+  *N TheTableName ' : public eosio::contract {' }
+{ '  public:' }
+{ '  private:' }
+{     'struct [[eosio::table]] rowstruct {' }
 *NARR fieldName { *N fielName *N fieldType ';' }
 {     '  uint64_t primary_key() const { return key.value; }' }
 {     '};' }
@@ -14789,6 +14845,29 @@ OUTTEMPLATE =
 
 .END`;
 
+input_i["ia07error2. compile SQL to EOSIO"] = `.SYNTAX SQL2EOS
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '('
+  $FIELD
+')'
+  OUTTEMPLATE;
+FIELD = FIELDNAME FIELDTYPE ',';
+FIELDNAME = .ID .STORENAMEARR fieldName;
+FIELDTYPE = .ID .STORENAMEARR fieldType;
+OUTTEMPLATE = 
+{ '#include <eosio/eosio.hpp>' }
+{ 'using namespace eosio;' }
+{ 'class [[eosio::contract("' *N TheTableName '")]] '
+  *N TheTableName ' : public eosio::contract {' }
+{ '  public:' }
+{ '  private:' }
+{     'struct [[eosio::table]] rowstruct {' }
+loop(fieldName, cur, idx [ {'in the loop!' }])
+{     '  uint64_t primary_key() const { return key.value; }' }
+{     '};' }
+{     'using address_index = eosio::multi_index<"people"_n, rowstruct>;' }
+{ '};' };
+
+.END`;
 
 
 input_i["ia07. CREATE TABLE"] = `CREATE TABLE customers (
@@ -15022,5 +15101,288 @@ L40
 	OUT
 L41
 L37
+	R
+  END`;
+input_i["ia06a. Use .NL and LeftMarginIndent for block based languages"] = `.SYNTAX METAII
+METAII = '.SYNTAX' .ID {'ADR ' *}
+          $ ST
+          '.END' {'END'};
+ST = .ID {.LB * } '=' EX1 ';' {'R'};
+EX1 = EX2 $('/' {'BT L' #} EX2 )
+      {.LB 'L'#} ;
+EX2 = (EX3 {'BF L' #} / OUTPUT)
+      $(EX3 {'BE'} / OUTPUT)
+      {.LB 'L'#};
+EX3 = .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '.STORENAMEARR' .ID {'STORENAMEARR '*}    /
+      '.STORENAME' .ID {'STORENAME '*}    /
+      '(' EX1 ')'             /
+      '.EMPTY'  {'SET'}   /
+      '$' {.LB 'L'#} EX3 {'BT L' #} {'SET'} ;
+OUTPUT = '{'$OUT1 '}' {'OUT'};
+OUT1 = '*N' .ID {'LOADNAME '*}/
+       '*'     {'CI'}   /
+       .STRING {'CL '*} /
+       '#'     {'GN'} /
+       '.NL'   {'NL'} /
+       '.LB'   {'LB'} /
+       '.TB'   {'TB'} /
+       '.LM+'  {'LMI'} /
+       '.LM-'  {'LMD'} ;
+.END`;
+code_c["ca06a use .NL and .LMI for block based languages"] = `	ADR METAII
+METAII
+	TST '.SYNTAX'
+	BF L1
+	ID
+	BE
+	CL 'ADR '
+	CI
+	OUT
+L2
+	CLL ST
+	BT L2
+	SET
+	BE
+	TST '.END'
+	BE
+	CL 'END'
+	OUT
+L1
+L3
+	R
+ST
+	ID
+	BF L4
+	LB
+	CI
+	OUT
+	TST '='
+	BE
+	CLL EX1
+	BE
+	TST ';'
+	BE
+	CL 'R'
+	OUT
+L4
+L5
+	R
+EX1
+	CLL EX2
+	BF L6
+L7
+	TST '/'
+	BF L8
+	CL 'BT L'
+	GN
+	OUT
+	CLL EX2
+	BE
+L8
+L9
+	BT L7
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	OUT
+L6
+L10
+	R
+EX2
+	CLL EX3
+	BF L11
+	CL 'BF L'
+	GN
+	OUT
+L11
+	BT L12
+	CLL OUTPUT
+	BF L13
+L13
+L12
+	BF L14
+L15
+	CLL EX3
+	BF L16
+	CL 'BE'
+	OUT
+L16
+	BT L17
+	CLL OUTPUT
+	BF L18
+L18
+L17
+	BT L15
+	SET
+	BE
+	LB
+	CL 'L'
+	GN
+	OUT
+L14
+L19
+	R
+EX3
+	ID
+	BF L20
+	CL 'CLL '
+	CI
+	OUT
+L20
+	BT L21
+	SR
+	BF L22
+	CL 'TST '
+	CI
+	OUT
+L22
+	BT L21
+	TST '.ID'
+	BF L23
+	CL 'ID'
+	OUT
+L23
+	BT L21
+	TST '.NUMBER'
+	BF L24
+	CL 'NUM'
+	OUT
+L24
+	BT L21
+	TST '.STRING'
+	BF L25
+	CL 'SR'
+	OUT
+L25
+	BT L21
+	TST '.STORENAMEARR'
+	BF L26
+	ID
+	BE
+	CL 'STORENAMEARR '
+	CI
+	OUT
+L26
+	BT L21
+	TST '.STORENAME'
+	BF L27
+	ID
+	BE
+	CL 'STORENAME '
+	CI
+	OUT
+L27
+	BT L21
+	TST '('
+	BF L28
+	CLL EX1
+	BE
+	TST ')'
+	BE
+L28
+	BT L21
+	TST '.EMPTY'
+	BF L29
+	CL 'SET'
+	OUT
+L29
+	BT L21
+	TST '$'
+	BF L30
+	LB
+	CL 'L'
+	GN
+	OUT
+	CLL EX3
+	BE
+	CL 'BT L'
+	GN
+	OUT
+	CL 'SET'
+	OUT
+L30
+L21
+	R
+OUTPUT
+	TST '{'
+	BF L31
+L32
+	CLL OUT1
+	BT L32
+	SET
+	BE
+	TST '}'
+	BE
+	CL 'OUT'
+	OUT
+L31
+L33
+	R
+OUT1
+	TST '*N'
+	BF L34
+	ID
+	BE
+	CL 'LOADNAME '
+	CI
+	OUT
+L34
+	BT L35
+	TST '*'
+	BF L36
+	CL 'CI'
+	OUT
+L36
+	BT L35
+	SR
+	BF L37
+	CL 'CL '
+	CI
+	OUT
+L37
+	BT L35
+	TST '#'
+	BF L38
+	CL 'GN'
+	OUT
+L38
+	BT L35
+	TST '.NL'
+	BF L39
+	CL 'NL'
+	OUT
+L39
+	BT L35
+	TST '.LB'
+	BF L40
+	CL 'LB'
+	OUT
+L40
+	BT L35
+	TST '.TB'
+	BF L41
+	CL 'TB'
+	OUT
+L41
+	BT L35
+	TST '.LM+'
+	BF L42
+	CL 'LMI'
+	OUT
+L42
+	BT L35
+	TST '.LM-'
+	BF L43
+	CL 'LMD'
+	OUT
+L43
+L35
 	R
 	END`;

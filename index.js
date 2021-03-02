@@ -61,18 +61,16 @@ let vm = {
   CL:  (s) => { vm.out(s); },
   CI:  ()  => { vm.out(vm.token); },
   GN1: ()  => {
-    if(vm.stack[vm.stackframe * vm.stackframesize + 0] == 0){
-      vm.stack[vm.stackframe * vm.stackframesize + 0] = vm.gnlabel;
-      vm.gnlabel++;
+    if(vm.stack[vm.stackframe * vm.stackframesize] == 0){
+      vm.stack[vm.stackframe * vm.stackframesize] = vm.gnlabel++;
     }
-    vm.out('L' + vm.stack[vm.stackframe * vm.stackframesize + 0]);
+    vm.out('L' + vm.stack[vm.stackframe * vm.stackframesize]);
   },
   GN:  () => { // generate unique number (extended only, compare with vm-GN1)
-    if(vm.stack[vm.stackframe * vm.stackframesize + 0] == 0){
-      vm.stack[vm.stackframe * vm.stackframesize + 0] = vm.gnlabel;
-      vm.gnlabel++;
+    if(vm.stack[vm.stackframe * vm.stackframesize] == 0){
+      vm.stack[vm.stackframe * vm.stackframesize] = vm.gnlabel++;
     }
-    vm.out(vm.stack[vm.stackframe * vm.stackframesize + 0]);
+    vm.out(vm.stack[vm.stackframe * vm.stackframesize]);
   },
   LB:  () => { vm.outstr = ''; },
   OUT: () => { vm.outbuf += vm.outstr + '\n'; vm.outstr = '\t'; },
@@ -100,6 +98,39 @@ let vm = {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.namedVariables[vm.symbolarg] = vm.token;
   },
+  PREPARE: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.prepare = vm.namedVariables[vm.symbolarg];
+  },
+  PREPAREARRLENGTH: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.prepare = vm.namedVariables[vm.symbolarg].arr.length;
+  },
+  LOADIDX: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    console.log('vm.prepare[2]:', vm.prepare);
+    console.log('vm.prepare.arr[2]:', vm.prepare.arr);
+    console.log('vm.symbolarg[2]:', vm.symbolarg);
+    vm.out(vm.prepare.arr[vm.namedVariables[vm.symbolarg]]);
+  },
+  COMPARE: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.flag = (vm.namedVariables[vm.symbolarg] == vm.prepare);
+    console.log('vm.symbolarg:', vm.symbolarg, ', vm.prepare:', vm.prepare);
+    console.log('flag: ', vm.flag);
+  },
+  INCVAR: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.namedVariables[vm.symbolarg]++;
+  },
+  INITVAR: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.namedVariables[vm.symbolarg] = 0;
+  },
+  ARRLENGTH: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    vm.out(vm.namedVariables[vm.symbolarg].arr.length);
+  },
   LOADNAME: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.out(vm.namedVariables[vm.symbolarg]);
@@ -108,7 +139,6 @@ let vm = {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     if(!vm.namedVariables[vm.symbolarg]){ vm.namedVariables[vm.symbolarg] = { arr: [], idx: -1 }; } // idx will be used in output loops to track where we are.
     vm.namedVariables[vm.symbolarg].arr.push(vm.token);
-    console.log('vm.namedVariables: ', vm.namedVariables);
   },
   LOADNAMEARR: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
