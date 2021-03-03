@@ -108,16 +108,11 @@ let vm = {
   },
   LOADIDX: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
-    console.log('vm.prepare[2]:', vm.prepare);
-    console.log('vm.prepare.arr[2]:', vm.prepare.arr);
-    console.log('vm.symbolarg[2]:', vm.symbolarg);
     vm.out(vm.prepare.arr[vm.namedVariables[vm.symbolarg]]);
   },
   COMPARE: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.flag = (vm.namedVariables[vm.symbolarg] == vm.prepare);
-    console.log('vm.symbolarg:', vm.symbolarg, ', vm.prepare:', vm.prepare);
-    console.log('flag: ', vm.flag);
   },
   INCVAR: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name

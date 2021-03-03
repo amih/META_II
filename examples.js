@@ -15385,4 +15385,77 @@ L42
 L43
 L35
 	R
-	END`;
+  END`;
+input_i["ia15. meta_ii with loops, use with ca05"] = `.SYNTAX METAIIWITHLOOPS
+METAIIWITHLOOPS = '.SYNTAX' .ID {'ADR ' *} $ ST '.END' {'END'};
+ST = .ID .LABEL * '=' EX1 ';' {'R'};
+EX1 = EX2 $('/' {'BT ' *1} EX2 ) .LABEL *1 ;
+EX2 = (EX3 {'BF ' *1} / OUTPUT) $(EX3 {'BE'} / OUTPUT) .LABEL *1 ;
+EX3 = '.loop(' .ID .STORENAME arrName ',' .ID .STORENAME idxName '['
+            { 'INITVAR ' *N idxName }
+            .LABEL *1
+            $ OUTPUT
+            { 'INCVAR ' *N idxName }
+            { 'PREPAREARRLENGTH ' *N arrName }
+            { 'COMPARE ' *N idxName }
+            { 'BF ' *1 }
+      ']' ')' /
+      .ID       {'CLL '*} /
+      .STRING   {'TST '*} /
+      '.ID'     {'ID'}    /
+      '.NUMBER' {'NUM'}   /
+      '.STRING' {'SR'}    /
+      '.STORENAMEARR' .ID {'STORENAMEARR '*}    /
+      '.STORENAME' .ID {'STORENAME '*}    /
+      '(' EX1 ')'             /
+      '.EMPTY'  {'SET'}   /
+      '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
+OUTPUT = ('{' $OUT1 '}' / '.LABEL' {'LB'} OUT1) {'OUT'};
+OUT1 = '*1'    {'GN1'}  /
+       '*2'    {'GN2'}  /
+       '*N'    .ID {'LOADNAME ' *} /
+       '+N'    .ID {'INCVAR '   *} /
+       '+INIT' .ID {'INITVAR '  *} /
+       '^N'    .ID {'ARRLENGTH '*} /
+       '~PREPNAME' .ID {'PREPARE '  *} /
+       '~PREPARR'  .ID {'PREPAREARRLENGTH '  *} /
+       '~COMPARE'    .ID {'COMPARE '  *} /
+       '~LOADIDX' .ID {'LOADIDX '*} /
+       '*'     {'CI'}   /
+       .STRING {'CL '*} ;
+.END`;
+input_i["ia16. sql to eosio"] = `.SYNTAX SQL2EOS
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '(' $FIELD ')' OUTTEMPLATE;
+FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType ',';
+OUTTEMPLATE = 
+  { 'tableName-->' *N TheTableName '<--' }
+  { 'num of fields:: -->' *N numOfFields '<--' }
+  { 'And again-->' *N TheTableName '<--' }
+  { +N numOfFields 'num of fields[2]:: -->' *N numOfFields '<--' }
+  { +N numOfFields 'num of fields[3]:: -->' *N numOfFields '<--' }
+  { 'fieldName.length::-->' ^N fieldName '<--LEN!!!' }
+  { +INIT idx }
+  .LABEL 'loopii'
+  { 'idx:: -->' *N idx '<--' }
+  { +N idx'idx++:: -->' *N idx '<--' }
+  { +N idx'idx++:: -->' *N idx '<--' }
+  { ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
+  { +N idx'idx++:: -->' *N idx '<--' }
+  { +N idx'idx++:: -->' *N idx '<--' }
+  { ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
+  { 'BF loopii' }
+  .loop(fieldName, ii [
+    {'[1] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+  ])
+  { 'few, that loop works... try another?' }
+  .loop(fieldName, ii [
+    {'[2nd try] ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- nice :)'  }
+  ])
+  { 'after the loop...' };
+.END`;
+input_i["ia17. create table example"] = `CREATE TABLE customers (
+  accountname name,
+  id int,
+  firstname string,
+  yearofbirth int,
+)`;

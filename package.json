@@ -10,5 +10,8 @@
     "meta_ii": "./index.js"
   },
   "author": "Ami Heines",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "http-server": "^0.12.3"
+  }
 }

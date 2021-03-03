@@ -4,48 +4,19 @@ I want to modify it to my needs, make it more approachable to others too.
 https://developer.okta.com/blog/2019/06/18/command-line-app-with-nodejs
 https://blog.developer.atlassian.com/scripting-with-node/
 
-cd to the proect, then run this command and navigate to http://localhost:8080
-
-    http-server
-
-
-// run:
-// 
-//     node .
-// 
-// install:
-// 
-//     npm install -g .
-// 
-// run:
-// 
-//     meta_ii
-// 
-// uninstall:
-// 
-//     npm uninstall -g meta_ii
-
-list globally installed apps:
-
-    npm ls -g --depth=0
-
-I was trying to recreate the META-II as an interpreter with a virtual machine that accepts 2 inputs: the input and the machine code compiler in the META II language.
-
-for now, in this folder, run:
-
-    node
-
-And in it,
-
-    META_II = require('./index.js').META_II;
-    console.log( inpExample );
-    console.log( codeExample );
-    result = META_II(inpExample, codeExample);
-    console.log( result );
+1. cd to the project folder
+2. http-server                            # will serve the index.html page from http://localhost:8080
+3. Select 'ia15. meta_ii with loops, use with ca05' from the first list on the left
+4. Select 'ca05 added STORE AND LOAD VARIABLES' from the center list
+5. click the ⤺ arrow to copy the output to the center text area
+6. Select 'ia16. sql to eosio' which will output the compiler
+7. click the ⤺ arrow to copy the output to the center text area
+8. Select 'ia17. create table example' to see the sql2eos compiler in action!
 
 TODO:
 
- * get rid of while loops that test each character, use regex instead.
+ V get rid of while loops that test each character, use regex instead.
  * convert stack frames to structured objects
  * write meta compiler with new version
+ * self contained output javascript meta_ii with interpreter
 

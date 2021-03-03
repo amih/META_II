@@ -1,4 +1,4 @@
-.SYNTAX METAII
+.SYNTAX METAIIWITHLOOPS
 METAII = '.SYNTAX' .ID {'ADR ' *} $ ST '.END' {'END'};
 ST = .ID .LABEL * '=' EX1 ';' {'R'};
 EX1 = EX2 $('/' {'BT ' *1} EX2 ) .LABEL *1 ;
@@ -31,14 +31,14 @@ OUT1 = '*1'    {'GN1'}  /
        '^N'    .ID {'ARRLENGTH '*} /
        '~PREPNAME' .ID {'PREPARE '  *} /
        '~PREPARR'  .ID {'PREPAREARRLENGTH '  *} /
-       '~N'    .ID {'COMPARE '  *} /
+       '~COMPARE'    .ID {'COMPARE '  *} /
        '~LOADIDX' .ID {'LOADIDX '*} /
        '*'     {'CI'}   /
        .STRING {'CL '*} ;
 .END
 -------------------------------------------------------------------
 .SYNTAX SQL2EOS
-SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '[' .NUMBER .STORENAME numOfFields ']' '(' $FIELD ')' OUTTEMPLATE;
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '(' $FIELD ')' OUTTEMPLATE;
 FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType ',';
 OUTTEMPLATE = 
 { 'tableName-->' *N TheTableName '<--' }
@@ -52,20 +52,23 @@ OUTTEMPLATE =
 { 'idx:: -->' *N idx '<--' }
 { +N idx'idx++:: -->' *N idx '<--' }
 { +N idx'idx++:: -->' *N idx '<--' }
-{ ~PREPARR fieldName ~N idx '// compare fieldName to idx and set flag if equal'}
+{ ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
 { +N idx'idx++:: -->' *N idx '<--' }
 { +N idx'idx++:: -->' *N idx '<--' }
-{ ~PREPARR fieldName ~N idx '// compare fieldName to idx and set flag if equal'}
+{ ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
 { 'BF loopii' }
+.loop(fieldName, ii [
+      {'[1] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+])
 { 'finish...' }
 {'tryloop:::'}
 .loop(fieldName, ii [
-      {'print something... FIELD--->' ~PREPNAME fieldName ~LOADIDX ii '<---' }
+      {'[2] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
 ])
 { 'after the loop...' };
 .END
 --------------------------------------------------------------
-CREATE TABLE customers[49] (
+CREATE TABLE customers (
   accountname name,
   id int,
   firstname string,
