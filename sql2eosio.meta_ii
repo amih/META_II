@@ -1,5 +1,5 @@
 .SYNTAX METAIIWITHLOOPS
-METAII = '.SYNTAX' .ID {'ADR ' *} $ ST '.END' {'END'};
+METAIIWITHLOOPS = '.SYNTAX' .ID {'ADR ' *} $ ST '.END' {'END'};
 ST = .ID .LABEL * '=' EX1 ';' {'R'};
 EX1 = EX2 $('/' {'BT ' *1} EX2 ) .LABEL *1 ;
 EX2 = (EX3 {'BF ' *1} / OUTPUT) $(EX3 {'BE'} / OUTPUT) .LABEL *1 ;
@@ -34,43 +34,112 @@ OUT1 = '*1'    {'GN1'}  /
        '~COMPARE'    .ID {'COMPARE '  *} /
        '~LOADIDX' .ID {'LOADIDX '*} /
        '*'     {'CI'}   /
-       .STRING {'CL '*} ;
+       .STRING {'CL '*} /
+             '.NL'   {'NL'} /
+       '.LB'   {'LB'} /
+       '.TB'   {'TB'} /
+       '.LM+'  {'LMI'} /
+       '.LM-'  {'LMD'} ;
 .END
 -------------------------------------------------------------------
 .SYNTAX SQL2EOS
-SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '(' $FIELD ')' OUTTEMPLATE;
-FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType ',';
+SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '(' FIELD $(',' FIELD) ')' OUTTEMPLATE;
+FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType;
 OUTTEMPLATE = 
-{ 'tableName-->' *N TheTableName '<--' }
-{ 'num of fields:: -->' *N numOfFields '<--' }
-{ 'And again-->' *N TheTableName '<--' }
-{ +N numOfFields 'num of fields[2]:: -->' *N numOfFields '<--' }
-{ +N numOfFields 'num of fields[3]:: -->' *N numOfFields '<--' }
-{ 'fieldName.length::-->' ^N fieldName '<--LEN!!!' }
-{ +INIT idx }
-.LABEL 'loopii'
-{ 'idx:: -->' *N idx '<--' }
-{ +N idx'idx++:: -->' *N idx '<--' }
-{ +N idx'idx++:: -->' *N idx '<--' }
-{ ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
-{ +N idx'idx++:: -->' *N idx '<--' }
-{ +N idx'idx++:: -->' *N idx '<--' }
-{ ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
-{ 'BF loopii' }
+{ .LB '// SQL2EOS 1st version, one table per smart contract 20210304'}
+{ .LB '// Limitations: the primary key is hard coded as the user'}
+{ .LB '// not sure it compiles!'}
+{ .LB '// no validation checks, on table name, should be a valid eosio name'}
+{ .LB '// no validation checks, on the fields, strings are unlimited in length!'}
+{ .LB '#include <eosio/eosio.hpp>' .NL 'using namespace eosio;' .NL 'using namespace std;' }
+{ .LB 'class [[eosio::contract("' *N TheTableName '")]] ' *N TheTableName ' : public eosio::contract {' }
+{ .LB 'public:' .LM+ }
+{ .LB *N TheTableName '(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}' }
+
+{ .LB '[[eosio::action]] void insert(name user' .LM+ }
 .loop(fieldName, ii [
-      {'[1] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+    { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
 ])
-{ 'finish...' }
-{'tryloop:::'}
+{ .LB .LM- ') {' .LM+ }
+{ .LB 'require_auth( user );'}
+{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB 'auto iterator = theTableVariable.find(user.value);'}
+{ .LB 'check(iterator == theTableVariable.end(), "Record already exist");'}
+{ .LB 'theTableVariable.emplace(user, [&]( auto& row ) {' .LM+ }
+{ .LB 'row.key = user;'}
 .loop(fieldName, ii [
-      {'[2] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+    { .LB 'row.' ~PREPNAME fieldName ~LOADIDX ii ' = ' ~PREPNAME fieldName ~LOADIDX ii ';' }
 ])
-{ 'after the loop...' };
+{ .LB .LM- '});' }
+{ .LB .LM- '}' }
+
+{ .LB '[[eosio::action]] void update(name user' .LM+ }
+.loop(fieldName, ii [
+    { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
+])
+{ .LB .LM- ') {' .LM+ }
+{ .LB 'require_auth( user );'}
+{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB 'auto iterator = theTableVariable.find(user.value);'}
+{ .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
+{ .LB 'theTableVariable.modify(iterator, user, [&]( auto& row ) {' .LM+ }
+{ .LB 'row.key = user;'}
+.loop(fieldName, ii [
+    { .LB 'row.' ~PREPNAME fieldName ~LOADIDX ii ' = ' ~PREPNAME fieldName ~LOADIDX ii ';' }
+])
+{ .LB .LM- '});' }
+{ .LB .LM- '}' }
+
+{ .LB '[[eosio::action]] void delete(name user) {' .LM+ }
+{ .LB 'require_auth(user);'}
+{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value);'}
+{ .LB 'auto iterator = theTableVariable.find(user.value);'}
+{ .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
+{ .LB 'theTableVariable.erase(iterator);'}
+{ .LB .LM- '}' }
+
+{ .LB .LM- 'private:' .LM+ }
+{ .LB 'struct [[eosio::table]] ' *N TheTableName '_struct {' .LM+ }
+{ .LB 'name key;'}
+.loop(fieldName, ii [
+    { .LB ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii ';' }
+])
+{ .LB 'uint64_t primary_key() const { return key.value; }'}
+{ .LB .LM- '};'}
+
+{ .LB 'using theTableIndex = eosio::multi_index<"' *N TheTableName '"_n, ' *N TheTableName '_struct>;'}
+{ .LB .LM- '};'}
+;
 .END
 --------------------------------------------------------------
-CREATE TABLE customers (
+CREATE TABLE customer (
   accountname name,
   id int,
   firstname string,
-  yearofbirth int,
+  yearofbirth int
 )
+--------------------------------------------------------------
+// { 'num of fields:: -->' *N numOfFields '<--' }
+// { 'And again-->' *N TheTableName '<--' }
+// { +N numOfFields 'num of fields[2]:: -->' *N numOfFields '<--' }
+// { +N numOfFields 'num of fields[3]:: -->' *N numOfFields '<--' }
+// { 'fieldName.length::-->' ^N fieldName '<--LEN!!!' }
+// { +INIT idx }
+// .LABEL 'loopii'
+// { 'idx:: -->' *N idx '<--' }
+// { +N idx'idx++:: -->' *N idx '<--' }
+// { +N idx'idx++:: -->' *N idx '<--' }
+// { ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
+// { +N idx'idx++:: -->' *N idx '<--' }
+// { +N idx'idx++:: -->' *N idx '<--' }
+// { ~PREPARR fieldName ~COMPARE idx '// compare fieldName to idx and set flag if equal'}
+// { 'BF loopii' }
+// .loop(fieldName, ii [
+//       {'[1] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+// ])
+// { 'finish...' }
+// {'tryloop:::'}
+// .loop(fieldName, ii [
+//       {'[2] FIELD: ' ~PREPNAME fieldName ~LOADIDX ii ', type: ' ~PREPNAME fieldType ~LOADIDX ii '<-- A Ha!'  }
+// ])
+// { 'after the loop...' };

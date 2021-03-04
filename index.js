@@ -9,6 +9,7 @@ let vm = {
     }
   },
   out: (s) => {
+    if(vm.margin<0){ console.log('Warning! negative margin!', vm.margin); vm.margin = 0; }
     if(vm.outstr.length == 0) { vm.outstr += ' '.repeat(vm.margin); }
     vm.outstr += s;
   },
@@ -56,6 +57,7 @@ let vm = {
     const j = Math.min(vm.inbuf.length, vm.inputPointer + 20);
     console.log('SYNTAX ERROR:\nrule:' + vm.stack[vm.stackframe * vm.stackframesize + 3] + '\nlast token:' + vm.token + '\n' +
     'out string:' + vm.outstr + '\nINPUT:' + '\n' + vm.inbuf.substring(i,vm.inputPointer) + '<scan>' + vm.inbuf.substring(vm.inputPointer,j));
+    console.log('complete stack:', vm.stack);
     vm.exitlevel = true;
   },
   CL:  (s) => { vm.out(s); },
