@@ -1,17 +1,8 @@
 {
-  "name": "meta_ii",
+  "name": "meta_ii_sql2eos",
   "version": "1.0.0",
-  "description": "",
+  "description": "A very small Meta_II meta compiler and an initial SQL-to-EOSIO smart contract compiler.",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "bin": {
-    "meta_ii": "./index.js"
-  },
-  "author": "Ami Heines",
-  "license": "ISC",
-  "dependencies": {
-    "http-server": "^0.12.3"
-  }
+  "author": "Ami Heines <ami@amiheines.com>",
+  "license": "ISC"
 }
