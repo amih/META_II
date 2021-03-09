@@ -24,6 +24,7 @@ TODO:
  * convert stack frames to structured objects
  * write meta compiler with new version
  * self contained output javascript meta_ii with interpreter
+ * minimize initial Meta_II code and bootstrap from it
 
 for future reference:
 	https://developer.okta.com/blog/2019/06/18/command-line-app-with-nodejs
