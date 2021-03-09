@@ -15438,6 +15438,7 @@ OUTTEMPLATE =
 { .LB '// not sure it compiles!'}
 { .LB '// no validation checks, on table name, should be a valid eosio name'}
 { .LB '// no validation checks, on the fields, strings are unlimited in length!'}
+{ .LB '// https://github.com/EOSIO/eos/blob/release/2.0.x/libraries/chain/abi_serializer.cpp#L90'}
 { .LB '#include <eosio/eosio.hpp>' .NL 'using namespace eosio;' .NL 'using namespace std;' }
 { .LB 'class [[eosio::contract("' *N TheTableName '")]] ' *N TheTableName ' : public eosio::contract {' }
 { .LB 'public:' .LM+ }
@@ -15477,7 +15478,7 @@ OUTTEMPLATE =
 { .LB .LM- '});' }
 { .LB .LM- '}' }
 
-{ .LB '[[eosio::action]] void delete(name user) {' .LM+ }
+{ .LB '[[eosio::action]] void del(name user) { // delete is a reserved word in cpp :(' .LM+ }
 { .LB 'require_auth(user);'}
 { .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value);'}
 { .LB 'auto iterator = theTableVariable.find(user.value);'}
@@ -15500,7 +15501,7 @@ OUTTEMPLATE =
 .END`;
 input_i["ia17. create table example"] = `CREATE TABLE customer (
   accountname name,
-  id int,
+  id uint64,
   firstname string,
-  yearofbirth int
+  yearofbirth uint16
 )`;

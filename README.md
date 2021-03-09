@@ -12,6 +12,8 @@ https://blog.developer.atlassian.com/scripting-with-node/
 6. Select 'ia16. sql to eosio' which will output the compiler
 7. click the ⤺ arrow to copy the output to the center text area
 8. Select 'ia17. create table example' to see the sql2eos compiler in action!
+9. Copy the output to a file with .cpp suffix, e.g. customer.cpp
+10. compile it using > eosio-cpp customer.cpp
 
 TODO:
 
