@@ -1,3 +1,5 @@
+# A very small Meta_II meta compiler and an initial SQL-to-EOSIO smart contract compiler
+
 Playing with META_II from http://www.bayfronttechnologies.com/mc_tutorial.html
 I want to modify it to my needs, make it more approachable to others too.
 
