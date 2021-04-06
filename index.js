@@ -132,6 +132,11 @@ let vm = {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     vm.out(vm.namedVariables[vm.symbolarg]);
   },
+  CLEARNAMEARR: () => {
+    vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
+    if(!vm.namedVariables[vm.symbolarg]){ vm.namedVariables[vm.symbolarg] = { arr: [], idx: -1 }; } // idx will be used in output loops to track where we are.
+    vm.namedVariables[vm.symbolarg].arr = []; // reset the array
+  },
   STORENAMEARR: () => {
     vm.argsymbol(/^[^ \t]*[ \t]*(?<argument>[a-zA-Z0-9_]*)/); // the variable name
     if(!vm.namedVariables[vm.symbolarg]){ vm.namedVariables[vm.symbolarg] = { arr: [], idx: -1 }; } // idx will be used in output loops to track where we are.
@@ -155,7 +160,7 @@ let vm = {
     if(/\bPFF\b/.test(op)){ vm.flag = false; return; }
     if(/\bPFT\b/.test(op)){ vm.flag = true; return; }
     switch (op) {
-      case 'ID' : vm.ID_NUM_SR(/^[ \t\n]*(?<arg>[a-zA-Z][a-zA-Z0-9]*)/, ''); return;
+      case 'ID' : vm.ID_NUM_SR(/^[ \t\n]*(?<arg>[a-zA-Z_][a-zA-Z0-9_]*)/, ''); return;
       case 'NUM': vm.ID_NUM_SR(/^[ \t\n]*(?<arg>[0-9]+)/, '')              ; return;
       case 'SR' : vm.ID_NUM_SR(/^[ \t\n]*\'(?<arg>[^\']*)/, "'")           ; return;
     }

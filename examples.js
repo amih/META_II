@@ -246,8 +246,9 @@ EX3 = '.loop(' .ID .STORENAME arrName ',' .ID .STORENAME idxName '['
       '.ID'     {'ID'}    /
       '.NUMBER' {'NUM'}   /
       '.STRING' {'SR'}    /
-      '.STORENAMEARR' .ID {'STORENAMEARR '*}    /
-      '.STORENAME' .ID {'STORENAME '*}    /
+      '.STORENAMEARR' .ID {'STORENAMEARR '*} /
+      '.CLEARNAMEARR' .ID {'CLEARNAMEARR '*} /
+      '.STORENAME'    .ID {'STORENAME '*}    /
       '(' EX1 ')'             /
       '.EMPTY'  {'SET'}   /
       '$' .LABEL *1 EX3 {'BT ' *1} {'SET'} ;
@@ -271,9 +272,11 @@ OUT1 = '*1'    {'GN1'}  /
        '.LM-'  {'LMD'} ;
 .END`;
 input_i["ia16. sql to eosio"] = `.SYNTAX SQL2EOS
-SQL2EOS = 'CREATE' 'TABLE' .ID .STORENAME TheTableName '(' FIELD $(',' FIELD) ')' OUTTEMPLATE;
+SQL2EOS = CREATEDATABASE DATABASEOUTTEMPLATEHEADER $ CREATETABLE DATABASEOUTTEMPLATEFOOTER;
+CREATEDATABASE = 'CREATE' 'DATABASE' .ID .STORENAME TheDatabaseName;
+CREATETABLE = 'CREATE' 'TABLE' .ID .STORENAME TheTableName .CLEARNAMEARR fieldName .CLEARNAMEARR fieldType '(' FIELD $(',' FIELD) ')' TABLEOUTTEMPLATE;
 FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType;
-OUTTEMPLATE = 
+DATABASEOUTTEMPLATEHEADER = 
 { .LB '// SQL2EOS 1st version, one table per smart contract 20210304'}
 { .LB '// Limitations: the primary key is hard coded as the user'}
 { .LB '// not sure it compiles!'}
@@ -281,7 +284,14 @@ OUTTEMPLATE =
 { .LB '// no validation checks, on the fields, strings are unlimited in length!'}
 { .LB '// https://github.com/EOSIO/eos/blob/release/2.0.x/libraries/chain/abi_serializer.cpp#L90'}
 { .LB '#include <eosio/eosio.hpp>' .NL 'using namespace eosio;' .NL 'using namespace std;' }
-{ .LB 'class [[eosio::contract("' *N TheTableName '")]] ' *N TheTableName ' : public eosio::contract {' }
+{ .LB 'class [[eosio::contract("' *N TheDatabaseName '")]] ' *N TheDatabaseName ' : public eosio::contract {' };
+DATABASEOUTTEMPLATEFOOTER = { .LB '};'};
+TABLEOUTTEMPLATE = 
+{ .LB }
+{ .LB '// ////////////////////////'}
+{ .LB '// TABLE: ' *N TheTableName}
+{ .LB '// ////////////////////////'}
+{ .LB }
 { .LB 'public:' .LM+ }
 { .LB *N TheTableName '(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}' }
 
@@ -291,7 +301,7 @@ OUTTEMPLATE =
 ])
 { .LB .LM- ') {' .LM+ }
 { .LB 'require_auth( user );'}
-{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value );'}
 { .LB 'auto iterator = theTableVariable.find(user.value);'}
 { .LB 'check(iterator == theTableVariable.end(), "Record already exist");'}
 { .LB 'theTableVariable.emplace(user, [&]( auto& row ) {' .LM+ }
@@ -308,7 +318,7 @@ OUTTEMPLATE =
 ])
 { .LB .LM- ') {' .LM+ }
 { .LB 'require_auth( user );'}
-{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value );'}
 { .LB 'auto iterator = theTableVariable.find(user.value);'}
 { .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
 { .LB 'theTableVariable.modify(iterator, user, [&]( auto& row ) {' .LM+ }
@@ -321,7 +331,7 @@ OUTTEMPLATE =
 
 { .LB '[[eosio::action]] void del(name user) { // delete is a reserved word in cpp :(' .LM+ }
 { .LB 'require_auth(user);'}
-{ .LB 'theTableIndex theTableVariable( get_self(), get_first_receiver().value);'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value);'}
 { .LB 'auto iterator = theTableVariable.find(user.value);'}
 { .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
 { .LB 'theTableVariable.erase(iterator);'}
@@ -336,13 +346,21 @@ OUTTEMPLATE =
 { .LB 'uint64_t primary_key() const { return key.value; }'}
 { .LB .LM- '};'}
 
-{ .LB 'using theTableIndex = eosio::multi_index<"' *N TheTableName '"_n, ' *N TheTableName '_struct>;'}
-{ .LB .LM- '};'}
+{ .LB 'using ' *N TheTableName '_multi_index = eosio::multi_index<"' *N TheTableName '"_n, ' *N TheTableName '_struct>;' .LM- }
 ;
 .END`;
-input_i["ia17. create table example"] = `CREATE TABLE customer (
-  accountname name,
-  id uint64,
-  firstname string,
-  yearofbirth uint16
+input_i["ia17. create table example"] = `CREATE DATABASE demoDatabase
+
+CREATE TABLE customer (
+  accountName name,
+  id uint64_t,
+  firstName string,
+  yearOfBirth uint16_t
+)
+
+CREATE TABLE product (
+  productName name,
+  id uint64_t,
+  productDescription string,
+  productPrice uint16_t
 )`;
