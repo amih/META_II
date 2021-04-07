@@ -290,12 +290,14 @@ DATABASEOUTTEMPLATEHEADER =
 DATABASEOUTTEMPLATEFOOTER = { .LB '};'};
 TABLEOUTTEMPLATE = 
 { .LB }
-{ .LB '// ////////////////////////'}
+{ .LB '//////////////////////'}
 { .LB '// TABLE: ' *N TheTableName}
-{ .LB '// ////////////////////////'}
+{ .LB '//////////////////////'}
 { .LB }
 { .LB 'public:' .LM+ }
-{ .LB '[[eosio::action]] void ' *N TheTableName 'ins(name user' .LM+ }
+{ .LB '// ACTION: ' *N TheTableName '-INSERT'}
+{ .LB '//--------------------'}
+{ .LB '[[eosio::action]] void ' *N TheTableName 'i(name user' .LM+ }
 .loop(fieldName, ii [
     { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
 ])
@@ -312,7 +314,9 @@ TABLEOUTTEMPLATE =
 { .LB .LM- '});' }
 { .LB .LM- '}' }
 
-{ .LB '[[eosio::action]] void ' *N TheTableName 'upd(name user' .LM+ }
+{ .LB '// ACTION: ' *N TheTableName '-UPDATE'}
+{ .LB '//--------------------'}
+{ .LB '[[eosio::action]] void ' *N TheTableName 'u(name user' .LM+ }
 .loop(fieldName, ii [
     { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
 ])
@@ -329,7 +333,9 @@ TABLEOUTTEMPLATE =
 { .LB .LM- '});' }
 { .LB .LM- '}' }
 
-{ .LB '[[eosio::action]] void ' *N TheTableName 'del(name user) { // delete is a reserved word in cpp :(' .LM+ }
+{ .LB '// ACTION: ' *N TheTableName '-DELETE'}
+{ .LB '//--------------------'}
+{ .LB '[[eosio::action]] void ' *N TheTableName 'd(name user) { // delete is a reserved word in cpp :(' .LM+ }
 { .LB 'require_auth(user);'}
 { .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value);'}
 { .LB 'auto iterator = theTableVariable.find(user.value);'}
