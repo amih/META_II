@@ -29,6 +29,7 @@ I want to modify it to my needs, make it more approachable to others too.
 
     eosio-cpp demo111.cpp
 
+ * The auto increment version has a bug: remove the comma before the first parameter in the INSERT action. TODO: extend the compiler to handle this case.
  * this will compile the file and output a demo111.wasm and demo111.abi which can be uploaded to a blockchain account.
  * start a temporary blockchain just for testing, using:
 
@@ -60,9 +61,17 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230, 12.40 ]' -p newaccount2@active
     cleos push action newaccount2 producti '[ "turntable", "Vintage mp3 player", 1234567890, 1290.42 ]' -p newaccount2@active
     cleos get table newaccount2 newaccount2 product
+    cleos push action newaccount2 productu '[ 1, "lemon", "Sour friut, careful!", 2330999,  0.25 ]' -p newaccount2@active
+    cleos get table newaccount2 newaccount2 product
 
  * to stop the blockchain,
+    tail -f nodeos.log
     kill `cat "eosd.pid"`
+    tail -f nodeos.log
+ * don't have the eosd.pid file? Here is how to stop the blockchain without it:
+    ps aux | grep nodeos
+ * you'll get 3 lines with the nodeos command you typed to start the blockchain, look for the lowest process number at the beginning of the lines and use that:
+   kill <theProcessNumber>
 
 # TODO:
 
