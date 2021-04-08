@@ -33,7 +33,7 @@ I want to modify it to my needs, make it more approachable to others too.
     // this will compile the file and output a demo111.wasm and demo111.abi which can be uploaded to a blockchain account.
     // start a temporary blockchain just for testing, using:
 
-    //nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin --plugin eosio::history_plugin --plugin eosio::history_api_plugin --filter-on="*" --access-control-allow-origin='*' --contracts-console --http-validate-host=false --verbose-http-errors > nodeos.log 2>&1 & echo $! > "eosd.pid"
+    nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin --plugin eosio::history_plugin --plugin eosio::history_api_plugin --filter-on="*" --access-control-allow-origin='*' --contracts-console --http-validate-host=false --verbose-http-errors > nodeos.log 2>&1 & echo $! > "eosd.pid"
 
     curl http://localhost:8888/v1/chain/get_info | jq
     cleos get info
@@ -75,7 +75,7 @@ I want to modify it to my needs, make it more approachable to others too.
     // to stop the blockchain,
 
     tail -f nodeos.log
-    kill `cat "eosd.pid"`
+    kill \`cat "eosd.pid"\`
     tail -f nodeos.log
 
     // don't have the eosd.pid file? Here is how to stop the blockchain without it:
