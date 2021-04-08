@@ -271,7 +271,7 @@ OUT1 = '*1'    {'GN1'}  /
        '.LM+'  {'LMI'} /
        '.LM-'  {'LMD'} ;
 .END`;
-input_i["ia16. sql to eosio"] = `.SYNTAX SQL2EOS
+input_i["ia16. SQL2EOS"] = `.SYNTAX SQL2EOS
 SQL2EOS = CREATEDATABASE DATABASEOUTTEMPLATEHEADER $ CREATETABLE DATABASEOUTTEMPLATEFOOTER;
 CREATEDATABASE = 'CREATE' 'DATABASE' .ID .STORENAME TheDatabaseName ';';
 CREATETABLE = 'CREATE' 'TABLE' .ID .STORENAME TheTableName .CLEARNAMEARR fieldName .CLEARNAMEARR fieldType '(' FIELD $(',' FIELD) ')' TABLEOUTTEMPLATE ';';
@@ -286,17 +286,16 @@ DATABASEOUTTEMPLATEHEADER =
 { .LB '#include <eosio/eosio.hpp>' .NL 'using namespace eosio;' .NL 'using namespace std;' }
 { .LB 'class [[eosio::contract("' *N TheDatabaseName '")]] ' *N TheDatabaseName ' : public eosio::contract {' }
 { .LB 'public:' .LM+ }
-{ .LB *N TheDatabaseName '(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}' };
+{ .LB *N TheDatabaseName '(name receiver, name blockchainAccount,  datastream<const char*> ds): contract(receiver, blockchainAccount, ds) {}' };
 DATABASEOUTTEMPLATEFOOTER = { .LB '};'};
 TABLEOUTTEMPLATE = 
 { .LB }
-{ .LB '//////////////////////'}
+{ .LB '/////////////////////'}
 { .LB '// TABLE: ' *N TheTableName}
-{ .LB '//////////////////////'}
+{ .LB '/////////////////////'}
 { .LB }
 { .LB 'public:' .LM+ }
 { .LB '// ACTION: ' *N TheTableName '-INSERT'}
-{ .LB '//--------------------'}
 { .LB '[[eosio::action]] void ' *N TheTableName 'i(name user' .LM+ }
 .loop(fieldName, ii [
     { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
@@ -315,7 +314,6 @@ TABLEOUTTEMPLATE =
 { .LB .LM- '}' }
 
 { .LB '// ACTION: ' *N TheTableName '-UPDATE'}
-{ .LB '//--------------------'}
 { .LB '[[eosio::action]] void ' *N TheTableName 'u(name user' .LM+ }
 .loop(fieldName, ii [
     { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
@@ -334,7 +332,6 @@ TABLEOUTTEMPLATE =
 { .LB .LM- '}' }
 
 { .LB '// ACTION: ' *N TheTableName '-DELETE'}
-{ .LB '//--------------------'}
 { .LB '[[eosio::action]] void ' *N TheTableName 'd(name user) { // delete is a reserved word in cpp :(' .LM+ }
 { .LB 'require_auth(user);'}
 { .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value);'}
@@ -355,18 +352,134 @@ TABLEOUTTEMPLATE =
 { .LB 'using ' *N TheTableName '_multi_index = eosio::multi_index<"' *N TheTableName '"_n, ' *N TheTableName '_struct>;' .LM- }
 ;
 .END`;
-input_i["ia17. create table example"] = `CREATE DATABASE demoDatabase;
+input_i["ia16a. SQL2EOS with auto increment PRIMARY KEY"] = `.SYNTAX SQL2EOS
+SQL2EOS = CREATEDATABASE DATABASEOUTTEMPLATEHEADER $ CREATETABLE DATABASEOUTTEMPLATEFOOTER;
+CREATEDATABASE = 'CREATE' 'DATABASE' .ID .STORENAME TheDatabaseName ';';
+CREATETABLE = 'CREATE' 'TABLE' .ID .STORENAME TheTableName .CLEARNAMEARR fieldName .CLEARNAMEARR fieldType '(' FIELD $(',' FIELD) ')' TABLEOUTTEMPLATE ';';
+FIELD = .ID .STORENAMEARR fieldName .ID .STORENAMEARR fieldType;
+DATABASEOUTTEMPLATEHEADER = 
+{ .LB '// SQL2EOS 1st version, one table per smart contract 20210304'}
+{ .LB '// Limitations: the primary key is hard coded as the user'}
+{ .LB '// not sure it compiles!'}
+{ .LB '// no validation checks, on table name, should be a valid eosio name'}
+{ .LB '// no validation checks, on the fields, strings are unlimited in length!'}
+{ .LB '// https://github.com/EOSIO/eos/blob/release/2.0.x/libraries/chain/abi_serializer.cpp#L90'}
+{ .LB '#include <eosio/eosio.hpp>' .NL 'using namespace eosio;' .NL 'using namespace std;' }
+{ .LB 'class [[eosio::contract("' *N TheDatabaseName '")]] ' *N TheDatabaseName ' : public eosio::contract {' }
+{ .LB 'public:' .LM+ }
+{ .LB *N TheDatabaseName '(name receiver, name blockchainAccount,  datastream<const char*> ds): contract(receiver, blockchainAccount, ds) {}' };
+DATABASEOUTTEMPLATEFOOTER = { .LB '};'};
+TABLEOUTTEMPLATE = 
+{ .LB }
+{ .LB '/////////////////////'}
+{ .LB '// TABLE: ' *N TheTableName}
+{ .LB '/////////////////////'}
+{ .LB 'public:' .LM+ }
+{ .LB '[[eosio::action]] void ' *N TheTableName 'i( // ACTION: ' *N TheTableName '-INSERT' .LM+ }
+{ .LB '// TODO: remove the comma before the first parameter!'}
+.loop(fieldName, ii [
+    { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
+])
+{ .LB .LM- ') {' .LM+ }
+{ .LB '// require_auth( user ); // who has permission to make this operation? the calling user?'}
+{ .LB 'require_auth( get_self() ); // who has permission to make this operation? the owner of the blockchain account where the smart contract is?'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB 'theTableVariable.emplace( get_self(), [&]( auto& row ) {' .LM+ }
+{ .LB 'row.id = theTableVariable.available_primary_key();'}
+.loop(fieldName, ii [
+    { .LB 'row.' ~PREPNAME fieldName ~LOADIDX ii ' = ' ~PREPNAME fieldName ~LOADIDX ii ';' }
+])
+{ .LB .LM- '});' }
+{ .LB .LM- '}' }
+
+{ .LB '[[eosio::action]] void ' *N TheTableName 'u( // ACTION: ' *N TheTableName '-UPDATE' .LM+ }
+{ .LB '  uint64_t id' }
+.loop(fieldName, ii [
+    { .LB ', ' ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii }
+])
+{ .LB .LM- ') {' .LM+ }
+{ .LB 'require_auth( get_self() );'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value );'}
+{ .LB 'auto iterator = theTableVariable.find(id);'}
+{ .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
+{ .LB 'theTableVariable.modify(iterator, get_self(), [&]( auto& row ) {' .LM+ }
+.loop(fieldName, ii [
+    { .LB 'row.' ~PREPNAME fieldName ~LOADIDX ii ' = ' ~PREPNAME fieldName ~LOADIDX ii ';' }
+])
+{ .LB .LM- '});' }
+{ .LB .LM- '}' }
+
+{ .LB '[[eosio::action]] void ' *N TheTableName 'd(uint64_t id) { // ACTION: ' *N TheTableName '-DELETE' .LM+ }
+{ .LB 'require_auth( get_self() );'}
+{ .LB *N TheTableName '_multi_index theTableVariable( get_self(), get_first_receiver().value);'}
+{ .LB 'auto iterator = theTableVariable.find(id);'}
+{ .LB 'check(iterator != theTableVariable.end(), "Record does not exist");'}
+{ .LB 'theTableVariable.erase(iterator);'}
+{ .LB .LM- '}' }
+
+{ .LB .LM- 'private:' .LM+ }
+{ .LB 'struct [[eosio::table]] ' *N TheTableName '_struct {' .LM+ }
+{ .LB 'uint64_t id;'}
+.loop(fieldName, ii [
+    { .LB ~PREPNAME fieldType ~LOADIDX ii ' ' ~PREPNAME fieldName ~LOADIDX ii ';' }
+])
+{ .LB 'uint64_t primary_key() const { return id; }'}
+{ .LB .LM- '};'}
+
+{ .LB 'using ' *N TheTableName '_multi_index = eosio::multi_index<"' *N TheTableName '"_n, ' *N TheTableName '_struct>;' .LM- }
+;
+.END`;
+input_i["ia17. create table example"] = `CREATE DATABASE demo111;
+
+CREATE TABLE customer (
+  id uint64_t,
+  accountName name,
+  firstName string,
+  yearOfBirth uint16_t
+);
+
+CREATE TABLE product (
+  id uint8_t,
+  productName name,
+  productDescription string,
+  productPrice uint16_t
+);`;
+input_i["ia17. create table for AUTO INCREMENT"] = `CREATE DATABASE demo111;
 
 CREATE TABLE customer (
   accountName name,
-  id uint64_t,
   firstName string,
   yearOfBirth uint16_t
 );
 
 CREATE TABLE product (
   productName name,
-  id uint64_t,
   productDescription string,
-  productPrice uint16_t
+  productPriceSmallInt uint8_t,
+  productPriceFloat float
+);`;
+input_i["ia18. create table future - not working yet"] = `CREATE DATABASE demoDatabase;
+
+-- future version will include:
+-- 1. SQL style comments like these lines, starting with double dash and a space until the end of the line
+-- 2. Constraints on string lengths and numerical bounds which will be checked in the INSERT and UPDATE actions
+-- 3. Primary Key and Secondary Indexes
+
+CREATE TABLE customer (
+  accountName name,
+  id uint64_t( 1 .. 230 ),
+  firstName string(20),
+  yearOfBirth uint16_t ( 1900 .. 2200 ),
+  PRIMARY KEY (accounttName),
+  INDEX (id),
+  INDEX (firstName, yearOfBirth)
+);
+
+CREATE TABLE product (
+  productName name,
+  id uint64_t,
+  productDescription string(250),
+  productPrice float(0..300),
+  prodFloatRangeMaxLimited float(..300),
+  PRIMARY KEY productName
 );`;
