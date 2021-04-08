@@ -41,21 +41,29 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos get accounts BY_PUB_KEY
     cleos create account eosio newaccount PUB_KEY_FOR_NEW_ACCOUNT
     cleos get account newaccount
+    
  * move up one level, to the folder above the one with the contract
+
     cd ..
+
  * this will upload the contract to the account on the blockchain:
+
     cleos set contract newaccount demo111
     cleos get account newaccount
     cleos get table newaccount newaccount product
     cleos get table newaccount newaccount customer
+
  * INSERT a new row to the product table:
+
     cleos push action newaccount producti '[ "eosio", "headset", 1, "the most amazing head set for audiophils!", 230 ]' -p eosio@active
     cleos get table newaccount newaccount product
     cleos push action newaccount productu '[ "eosio", "HeadSet", 1, "The BESTES!?!?!?!? head set for audiophils!", 2300 ]' -p eosio@active
     cleos get table newaccount newaccount product
     cleos push action newaccount producti '[ "newaccount", "Banana", 12345678901234567890, "Fruit is good for you", 12 ]' -p newaccount@active
     cleos get table newaccount newaccount product
+
  * INSERT to AUTO INCREMENT table:
+
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230,  1.2  ]' -p newaccount2@active
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230,  1.23 ]' -p newaccount2@active
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230, 12.40 ]' -p newaccount2@active
@@ -65,12 +73,17 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos get table newaccount2 newaccount2 product
 
  * to stop the blockchain,
+
     tail -f nodeos.log
     kill `cat "eosd.pid"`
     tail -f nodeos.log
+
  * don't have the eosd.pid file? Here is how to stop the blockchain without it:
+
     ps aux | grep nodeos
+
  * you'll get 3 lines with the nodeos command you typed to start the blockchain, look for the lowest process number at the beginning of the lines and use that:
+
    kill <theProcessNumber>
 
 # TODO:
