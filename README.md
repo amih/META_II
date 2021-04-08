@@ -29,11 +29,11 @@ I want to modify it to my needs, make it more approachable to others too.
 
     eosio-cpp demo111.cpp
 
- * The auto increment version has a bug: remove the comma before the first parameter in the INSERT action. TODO: extend the compiler to handle this case.
- * this will compile the file and output a demo111.wasm and demo111.abi which can be uploaded to a blockchain account.
- * start a temporary blockchain just for testing, using:
+    // The auto increment version has a bug: remove the comma before the first parameter in the INSERT action. TODO: extend the compiler to handle this case.
+    // this will compile the file and output a demo111.wasm and demo111.abi which can be uploaded to a blockchain account.
+    // start a temporary blockchain just for testing, using:
 
-    nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin --plugin eosio::history_plugin --plugin eosio::history_api_plugin --filter-on="*" --access-control-allow-origin='*' --contracts-console --http-validate-host=false --verbose-http-errors > nodeos.log 2>&1 & echo $! > "eosd.pid"
+    //nodeos -e -p eosio --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::http_plugin --plugin eosio::history_plugin --plugin eosio::history_api_plugin --filter-on="*" --access-control-allow-origin='*' --contracts-console --http-validate-host=false --verbose-http-errors > nodeos.log 2>&1 & echo $! > "eosd.pid"
 
     curl http://localhost:8888/v1/chain/get_info | jq
     cleos get info
@@ -42,18 +42,18 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos create account eosio newaccount PUB_KEY_FOR_NEW_ACCOUNT
     cleos get account newaccount
     
- * move up one level, to the folder above the one with the contract
+    // move up one level, to the folder above the one with the contract
 
     cd ..
 
- * this will upload the contract to the account on the blockchain:
+    // this will upload the contract to the account on the blockchain:
 
     cleos set contract newaccount demo111
     cleos get account newaccount
     cleos get table newaccount newaccount product
     cleos get table newaccount newaccount customer
 
- * INSERT a new row to the product table:
+    // INSERT a new row to the product table:
 
     cleos push action newaccount producti '[ "eosio", "headset", 1, "the most amazing head set for audiophils!", 230 ]' -p eosio@active
     cleos get table newaccount newaccount product
@@ -62,7 +62,7 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos push action newaccount producti '[ "newaccount", "Banana", 12345678901234567890, "Fruit is good for you", 12 ]' -p newaccount@active
     cleos get table newaccount newaccount product
 
- * INSERT to AUTO INCREMENT table:
+    // INSERT to AUTO INCREMENT table:
 
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230,  1.2  ]' -p newaccount2@active
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230,  1.23 ]' -p newaccount2@active
@@ -72,19 +72,19 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos push action newaccount2 productu '[ 1, "lemon", "Sour friut, careful!", 2330999,  0.25 ]' -p newaccount2@active
     cleos get table newaccount2 newaccount2 product
 
- * to stop the blockchain,
+    // to stop the blockchain,
 
     tail -f nodeos.log
     kill `cat "eosd.pid"`
     tail -f nodeos.log
 
- * don't have the eosd.pid file? Here is how to stop the blockchain without it:
+    // don't have the eosd.pid file? Here is how to stop the blockchain without it:
 
     ps aux | grep nodeos
 
- * you'll get 3 lines with the nodeos command you typed to start the blockchain, look for the lowest process number at the beginning of the lines and use that:
+    // you'll get 3 lines with the nodeos command you typed to start the blockchain, look for the lowest process number at the beginning of the lines and use that:
 
-   kill <theProcessNumber>
+   kill theProcessNumber
 
 # TODO:
 
