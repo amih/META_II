@@ -62,6 +62,13 @@ I want to modify it to my needs, make it more approachable to others too.
     cleos push action newaccount producti '[ "newaccount", "Banana", 12345678901234567890, "Fruit is good for you", 12 ]' -p newaccount@active  
     cleos get table newaccount newaccount product  
 
+    ## SHOW TABLES:
+    cleos get abi newaccount  > abi.json
+    cleos get abi newaccount2 > abi2.json
+    
+    ## SELECT * FROM newaccount2.product:
+    cleos get table newaccount2 newaccount2 product
+
     // INSERT to AUTO INCREMENT table:
 
     cleos push action newaccount2 producti '[ "headset", "the most amazing head set for audiophils!", 230,  1.2  ]' -p newaccount2@active  
